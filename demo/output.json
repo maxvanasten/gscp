@@ -1,5 +1,11 @@
 [
   {
+    "type": "include_statement",
+    "data": {
+      "path": "some\\other\\file"
+    }
+  },
+  {
     "type": "function_declaration",
     "data": {
       "function_name": "init"
@@ -13,6 +19,12 @@
         "type": "scope",
         "data": {},
         "children": [
+          {
+            "type": "wait_statement",
+            "data": {
+              "delay": "0.05"
+            }
+          },
           {
             "type": "variable_assignment",
             "data": {
