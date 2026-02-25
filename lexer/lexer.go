@@ -3,6 +3,7 @@ package lexer
 import (
 	"bytes"
 	"slices"
+	"strings"
 	"unicode"
 )
 
@@ -171,7 +172,7 @@ func (l *Lexer) HandleCharacter(c byte) int {
 	case '\n', '(', '[', '{', ')', ']', '}', '+', '-', '*', '/', '=', ';', ',':
 		l.HandleBuffer()
 		token_type := TokenTypeFromChar(c)
-		l.tokens = append(l.tokens, Token{Type: token_type, Content: string(c)})
+		l.tokens = append(l.tokens, Token{Type: token_type, Content: strings.TrimSpace(string(c))})
 		return 1
 	case ' ', '\t':
 		l.HandleBuffer()

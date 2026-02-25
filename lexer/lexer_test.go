@@ -13,6 +13,7 @@ func TestLexer(t *testing.T) {
 		{lexer.SYMBOL, "init"},
 		{lexer.OPEN_PAREN, "("},
 		{lexer.SYMBOL, "arg1"},
+		{lexer.COMMA, ","},
 		{lexer.SYMBOL, "arg2"},
 		{lexer.CLOSE_PAREN, ")"},
 		{lexer.OPEN_CURLY, "{"},
@@ -44,7 +45,7 @@ func TestLexer(t *testing.T) {
 		{lexer.CLOSE_PAREN, ")"},
 		{lexer.TERMINATOR, ";"},
 		{lexer.NEWLINE, ""},
-		
+
 		{lexer.CLOSE_CURLY, "}"},
 	}
 	// =================
@@ -53,7 +54,7 @@ func TestLexer(t *testing.T) {
 
 	tokens := l.GetTokens()
 	for i, token := range tokens {
-		t.Logf("[%v] Type: %v, Content: %v\n", i, token.Type.ToString(), token.Content)	
+		t.Logf("[%v] Type: %v, Content: %v\n", i, token.Type.ToString(), token.Content)
 	}
 
 	if len(targets) != len(tokens) {
