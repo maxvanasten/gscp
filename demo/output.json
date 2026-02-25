@@ -1,0 +1,166 @@
+[
+  {
+    "type": "function_declaration",
+    "data": {
+      "function_name": "init"
+    },
+    "children": [
+      {
+        "type": "args",
+        "data": {}
+      },
+      {
+        "type": "scope",
+        "data": {},
+        "children": [
+          {
+            "type": "variable_assignment",
+            "data": {
+              "variable_name": "name"
+            },
+            "children": [
+              {
+                "type": "string",
+                "data": {
+                  "content": "Max"
+                }
+              }
+            ]
+          },
+          {
+            "type": "variable_assignment",
+            "data": {
+              "variable_name": "age"
+            },
+            "children": [
+              {
+                "type": "number",
+                "data": {
+                  "content": "23"
+                }
+              }
+            ]
+          },
+          {
+            "type": "function_call",
+            "data": {
+              "function_name": "print"
+            },
+            "children": [
+              {
+                "type": "expression",
+                "data": {
+                  "operator": "+"
+                },
+                "children": [
+                  {
+                    "type": "lhs",
+                    "data": {},
+                    "children": [
+                      {
+                        "type": "string",
+                        "data": {
+                          "content": "Hello, "
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "type": "rhs",
+                    "data": {},
+                    "children": [
+                      {
+                        "type": "expression",
+                        "data": {
+                          "operator": "+"
+                        },
+                        "children": [
+                          {
+                            "type": "lhs",
+                            "data": {},
+                            "children": [
+                              {
+                                "type": "variable_reference",
+                                "data": {
+                                  "variable_name": "name"
+                                }
+                              }
+                            ]
+                          },
+                          {
+                            "type": "rhs",
+                            "data": {},
+                            "children": [
+                              {
+                                "type": "expression",
+                                "data": {
+                                  "operator": "+"
+                                },
+                                "children": [
+                                  {
+                                    "type": "lhs",
+                                    "data": {},
+                                    "children": [
+                                      {
+                                        "type": "string",
+                                        "data": {
+                                          "content": ", you are "
+                                        }
+                                      }
+                                    ]
+                                  },
+                                  {
+                                    "type": "rhs",
+                                    "data": {},
+                                    "children": [
+                                      {
+                                        "type": "expression",
+                                        "data": {
+                                          "operator": "+"
+                                        },
+                                        "children": [
+                                          {
+                                            "type": "lhs",
+                                            "data": {},
+                                            "children": [
+                                              {
+                                                "type": "variable_reference",
+                                                "data": {
+                                                  "variable_name": "age"
+                                                }
+                                              }
+                                            ]
+                                          },
+                                          {
+                                            "type": "rhs",
+                                            "data": {},
+                                            "children": [
+                                              {
+                                                "type": "string",
+                                                "data": {
+                                                  "content": " years old."
+                                                }
+                                              }
+                                            ]
+                                          }
+                                        ]
+                                      }
+                                    ]
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+]
