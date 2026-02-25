@@ -22,7 +22,7 @@ cd ./gscp/ && go build
 ./gscp input.gsc
 ```
 
-gscp outputs the abstract syntax tree on STDOUT accesibility. I like to read the output of gscp by using `jq` and `bat` to format the json nicely, by running gscp like so: `./gscp input.gsc | jq | bat -l json`
+gscp outputs the abstract syntax tree in JSON format on STDOUT. I personally like to read the output of gscp by using `jq` and `bat` to format the json nicely, by running gscp like so: `./gscp input.gsc | jq | bat -l json`
 
 ## Application
 
