@@ -27,6 +27,14 @@ func Parse(tokens []l.Token) []Node {
 		case l.STRING:
 			output = append(output, Node{"string", NodeData{Content: tokens[index].Content}, []Node{}})
 		case l.SYMBOL:
+			if tokens[index].Content == "#include" {
+				if index+1 < len(tokens) {
+					output = append(output, Node{"include_statement", NodeData{Path: tokens[index+1].Content}, []Node{}})
+					index++
+					break
+				}
+			}
+
 			output = append(output, Node{"variable_reference", NodeData{VarName: tokens[index].Content}, []Node{}})
 		case l.NUMBER:
 			output = append(output, Node{"number", NodeData{Content: tokens[index].Content}, []Node{}})

@@ -146,7 +146,7 @@ func (l *Lexer) HandleBuffer() {
 
 		} else {
 			// Check if symbol is valid
-			if unicode.IsLetter(rune(l.buffer[0])) {
+			if unicode.IsLetter(rune(l.buffer[0])) || l.buffer[0] == '#' {
 				l.tokens = append(l.tokens, Token{Type: SYMBOL, Content: string(l.buffer)})
 			}
 		}
