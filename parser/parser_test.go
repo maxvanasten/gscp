@@ -225,3 +225,16 @@ func Test_IncludeStatement(t *testing.T) {
 
 	assert.Equal(t, target, p.Parse(input))
 }
+
+func Test_WaitStatement(t *testing.T) {
+	input := []l.Token{
+		{Type: l.SYMBOL, Content: "wait"},
+		{Type: l.NUMBER, Content: "0.05"},
+		{Type: l.TERMINATOR, Content: ";"},
+	}
+	target := []p.Node{
+		{"wait_statement", p.NodeData{Delay: "0.05"}, []p.Node{}},
+	}
+
+	assert.Equal(t, target, p.Parse(input))
+}

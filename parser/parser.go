@@ -9,6 +9,7 @@ type NodeData struct {
 	FunctionName string `json:"function_name,omitempty"`
 	Path         string `json:"path,omitempty"`
 	Operator     string `json:"operator,omitempty"`
+	Delay        string `json:"delay,omitempty"`
 	Content      string `json:"content,omitempty"`
 }
 
