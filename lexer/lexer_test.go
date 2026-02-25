@@ -7,9 +7,13 @@ import (
 
 func TestLexer(t *testing.T) {
 	// =================
-	input := []byte("init(arg1, arg2) {\n\tname = \"Max\";\n\tage = 23.5;\n\tprint(\"Hello \" + name + \". You are \" + age + \" years old.\");\n}")
+	input := []byte("#include path\\to\\file;\ninit(arg1, arg2) {\n\tname = \"Max\";\n\tage = 23.5;\n\tprint(\"Hello \" + name + \". You are \" + age + \" years old.\");\n}")
 
 	targets := []lexer.Token{
+		{lexer.SYMBOL, "#include"},
+		{lexer.SYMBOL, "path\\to\\file"},
+		{lexer.TERMINATOR, ";"},
+		{lexer.NEWLINE, ""},
 		{lexer.SYMBOL, "init"},
 		{lexer.OPEN_PAREN, "("},
 		{lexer.SYMBOL, "arg1"},
