@@ -178,6 +178,21 @@ func Test_Function_Call(t *testing.T) {
 	assert.Equal(t, target, p.Parse(input))
 }
 
+func Test_Threaded_Function_Call(t *testing.T) {
+	input := []l.Token{
+		{Type: l.SYMBOL, Content: "thread"},
+		{Type: l.SYMBOL, Content: "some_func"},
+		{Type: l.OPEN_PAREN, Content: "("},
+		{Type: l.CLOSE_PAREN, Content: ")"},
+		{Type: l.TERMINATOR, Content: ";"},
+	}
+	target := []p.Node{
+		{"function_call", p.NodeData{FunctionName: "some_func", Thread: true}, []p.Node{}},
+	}
+
+	assert.Equal(t, target, p.Parse(input))
+}
+
 func Test_Function_Declaration(t *testing.T) {
 	input := []l.Token{
 		{Type: l.SYMBOL, Content: "init"},
