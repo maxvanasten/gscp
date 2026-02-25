@@ -3,6 +3,11 @@
 gscp is a small lexer and parser for the .gsc scripting language used in older Call of Duty games. gscp takes raw .gsc code and turns it into an abstract syntax tree. You can find a small demo input and output file in `./demo`.
 
 ## Installation
+
+### Download binary
+1. Go to the releases tab and download one of the gscp binaries
+
+### Build from source
 1. Clone the repo
 `git clone https://github.com/maxvanasten/gscp`
 2. Build the parser
