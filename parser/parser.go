@@ -7,6 +7,7 @@ import (
 type NodeData struct {
 	VarName      string `json:"variable_name,omitempty"`
 	FunctionName string `json:"function_name,omitempty"`
+	Path         string `json:"path,omitempty"`
 	Operator     string `json:"operator,omitempty"`
 	Content      string `json:"content,omitempty"`
 }

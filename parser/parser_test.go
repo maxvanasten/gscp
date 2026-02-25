@@ -212,3 +212,16 @@ func Test_Function_Declaration(t *testing.T) {
 
 	assert.Equal(t, target, p.Parse(input))
 }
+
+func Test_IncludeStatement(t *testing.T) {
+	input := []l.Token{
+		{Type: l.SYMBOL, Content: "#include"},
+		{Type: l.SYMBOL, Content: "path\\to\\file"},
+		{Type: l.TERMINATOR, Content: ";"},
+	}
+	target := []p.Node{
+		{"include_statement", p.NodeData{Path: "path\\to\\file"}, []p.Node{}},
+	}
+
+	assert.Equal(t, target, p.Parse(input))
+}
