@@ -10,6 +10,7 @@ type NodeData struct {
 	Path         string `json:"path,omitempty"`
 	Operator     string `json:"operator,omitempty"`
 	Delay        string `json:"delay,omitempty"`
+	Thread       bool   `json:"thread,omitempty"`
 	Content      string `json:"content,omitempty"`
 }
 
@@ -39,6 +40,8 @@ func Parse(tokens []l.Token) []Node {
 					output = append(output, Node{"wait_statement", NodeData{Delay: tokens[index+1].Content}, []Node{}})
 					index++
 				}
+			case "thread":
+				output = append(output, Node{"thread_keyword", NodeData{}, []Node{}})
 			default:
 				output = append(output, Node{"variable_reference", NodeData{VarName: tokens[index].Content}, []Node{}})
 			}
@@ -92,11 +95,20 @@ func Parse(tokens []l.Token) []Node {
 			if previous_node.Type != "variable_reference" {
 				break
 			}
+			// Check if node before that is thread keyword
+			thread := false
+			if index-2 >= 0 {
+				pp_node := output[index-2]
+				if pp_node.Type == "thread_keyword" {
+					thread = true
+					output = output[:len(output)-1]
+				}
+			}
 			output = output[:len(output)-1]
 			// Get all tokens from OPEN_PAREN until CLOSE_PAREN
 			arg_tokens := l.TokensUntilAny(tokens[index+1:], []l.TokenType{l.CLOSE_PAREN})
 			// Add function call node
-			output = append(output, Node{"function_call", NodeData{FunctionName: previous_node.Data.VarName}, Parse(arg_tokens)})
+			output = append(output, Node{"function_call", NodeData{FunctionName: previous_node.Data.VarName, Thread: thread}, Parse(arg_tokens)})
 			index += len(arg_tokens)
 		case l.OPEN_CURLY:
 			// Check if previous node is a function_call
