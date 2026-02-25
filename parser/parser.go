@@ -28,15 +28,21 @@ func Parse(tokens []l.Token) []Node {
 		case l.STRING:
 			output = append(output, Node{"string", NodeData{Content: tokens[index].Content}, []Node{}})
 		case l.SYMBOL:
-			if tokens[index].Content == "#include" {
+			switch tokens[index].Content {
+			case "#include":
 				if index+1 < len(tokens) {
 					output = append(output, Node{"include_statement", NodeData{Path: tokens[index+1].Content}, []Node{}})
 					index++
-					break
 				}
+			case "wait":
+				if index+1 < len(tokens) && (tokens[index+1].Type == l.NUMBER || tokens[index+1].Type == l.SYMBOL) {
+					output = append(output, Node{"wait_statement", NodeData{Delay: tokens[index+1].Content}, []Node{}})
+					index++
+				}
+			default:
+				output = append(output, Node{"variable_reference", NodeData{VarName: tokens[index].Content}, []Node{}})
 			}
 
-			output = append(output, Node{"variable_reference", NodeData{VarName: tokens[index].Content}, []Node{}})
 		case l.NUMBER:
 			output = append(output, Node{"number", NodeData{Content: tokens[index].Content}, []Node{}})
 		case l.OPERATOR:
