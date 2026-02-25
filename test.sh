@@ -1,3 +1,3 @@
 #!/usr/bin/env bash
-go test ./lexer
-go test ./parser
+go test -v ./lexer
+go test -v ./parser

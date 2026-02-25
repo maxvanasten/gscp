@@ -57,9 +57,9 @@ func TestLexer(t *testing.T) {
 	l := lexer.NewLexer(input)
 
 	tokens := l.GetTokens()
-	for i, token := range tokens {
-		t.Logf("[%v] Type: %v, Content: %v\n", i, token.Type.ToString(), token.Content)
-	}
+	//for i, token := range tokens {
+	//	t.Logf("[%v] Type: %v, Content: %v\n", i, token.Type.ToString(), token.Content)
+	//}
 
 	if len(targets) != len(tokens) {
 		t.Fatalf("len(targets)(%v) != len(tokens)(%v)\n", len(targets), len(tokens))
