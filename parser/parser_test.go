@@ -259,3 +259,45 @@ func Test_WaitStatement(t *testing.T) {
 	result, _ := p.Parse(input)
 	assert.Equal(t, target, result)
 }
+
+func Test_Function_Calls(t *testing.T) {
+	input := []l.Token{
+		{Type: l.SYMBOL, Content: "level"},
+		{Type: l.SYMBOL, Content: "thread"},
+		{Type: l.SYMBOL, Content: "somefunc"},
+		{Type: l.OPEN_PAREN, Content: "("},
+		{Type: l.CLOSE_PAREN, Content: ")"},
+		{Type: l.TERMINATOR, Content: ";"},
+		{Type: l.NEWLINE, Content: ""},
+
+		{Type: l.SYMBOL, Content: "thread"},
+		{Type: l.SYMBOL, Content: "somefunc"},
+		{Type: l.OPEN_PAREN, Content: "("},
+		{Type: l.CLOSE_PAREN, Content: ")"},
+		{Type: l.TERMINATOR, Content: ";"},
+		{Type: l.NEWLINE, Content: ""},
+
+		{Type: l.SYMBOL, Content: "level"},
+		{Type: l.SYMBOL, Content: "somefunc"},
+		{Type: l.OPEN_PAREN, Content: "("},
+		{Type: l.CLOSE_PAREN, Content: ")"},
+		{Type: l.TERMINATOR, Content: ";"},
+		{Type: l.NEWLINE, Content: ""},
+
+		{Type: l.SYMBOL, Content: "somefunc"},
+		{Type: l.OPEN_PAREN, Content: "("},
+		{Type: l.CLOSE_PAREN, Content: ")"},
+		{Type: l.TERMINATOR, Content: ";"},
+		{Type: l.NEWLINE, Content: ""},
+	}
+
+	target := []p.Node{
+		{"function_call", p.NodeData{FunctionName: "somefunc", Thread: true, Method: "level"}, []p.Node{}},
+		{"function_call", p.NodeData{FunctionName: "somefunc", Thread: true}, []p.Node{}},
+		{"function_call", p.NodeData{FunctionName: "somefunc", Method: "level"}, []p.Node{}},
+		{"function_call", p.NodeData{FunctionName: "somefunc"}, []p.Node{}},
+	}
+
+	result, _ := p.Parse(input)
+	assert.Equal(t, target, result)
+}
