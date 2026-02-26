@@ -2,6 +2,7 @@ package parser
 
 import (
 	l "github.com/maxvanasten/gscp/lexer"
+	d "github.com/maxvanasten/gscp/diagnostics"
 )
 
 type NodeData struct {
@@ -20,8 +21,9 @@ type Node struct {
 	Children []Node   `json:"children,omitempty"`
 }
 
-func Parse(tokens []l.Token) []Node {
+func Parse(tokens []l.Token) ([]Node, []d.Diagnostic) {
 	output := []Node{}
+	diagnostics := []d.Diagnostic{}
 
 	index := 0
 	for index < len(tokens) {
@@ -63,9 +65,11 @@ func Parse(tokens []l.Token) []Node {
 				// Get all tokens from OPERATOR until END, NEWLINE or TERMINATOR
 				expr_tokens := l.TokensUntilAny(tokens[index+1:], []l.TokenType{l.NEWLINE, l.TERMINATOR})
 				// Parse those tokens into RHS
-				rhs := Node{"rhs", NodeData{}, Parse(expr_tokens)}
+				rhs_children, diags := Parse(expr_tokens)
+				rhs := Node{"rhs", NodeData{}, rhs_children}
 				// Add Expression node to output
 				output = append(output, Node{"expression", NodeData{Operator: tokens[index].Content}, []Node{lhs, rhs}})
+				diagnostics = append(diagnostics, diags...)
 				index += len(expr_tokens)
 			default:
 				output = append(output, Node{"operator", NodeData{Content: tokens[index].Content}, []Node{}})
@@ -84,7 +88,9 @@ func Parse(tokens []l.Token) []Node {
 			// Get all tokens from ASSIGNMENT until END, NEWLINE or TERMINATOR
 			ass_tokens := l.TokensUntilAny(tokens[index+1:], []l.TokenType{l.NEWLINE, l.TERMINATOR})
 
-			output = append(output, Node{"variable_assignment", NodeData{VarName: previous_node.Data.VarName}, Parse(ass_tokens)})
+			ass_children, diags := Parse(ass_tokens)
+			output = append(output, Node{"variable_assignment", NodeData{VarName: previous_node.Data.VarName}, ass_children})
+			diagnostics = append(diagnostics, diags...)
 			index += len(ass_tokens)
 		case l.OPEN_PAREN:
 			if index <= 0 {
@@ -108,7 +114,9 @@ func Parse(tokens []l.Token) []Node {
 			// Get all tokens from OPEN_PAREN until CLOSE_PAREN
 			arg_tokens := l.TokensUntilAny(tokens[index+1:], []l.TokenType{l.CLOSE_PAREN})
 			// Add function call node
-			output = append(output, Node{"function_call", NodeData{FunctionName: previous_node.Data.VarName, Thread: thread}, Parse(arg_tokens)})
+			arg_children, diags := Parse(arg_tokens)
+			output = append(output, Node{"function_call", NodeData{FunctionName: previous_node.Data.VarName, Thread: thread}, arg_children})
+			diagnostics = append(diagnostics, diags...)
 			index += len(arg_tokens)
 		case l.OPEN_CURLY:
 			// Check if previous node is a function_call
@@ -122,14 +130,16 @@ func Parse(tokens []l.Token) []Node {
 			scope_tokens := l.TokensUntilAny(tokens[index+1:], []l.TokenType{l.CLOSE_CURLY})
 			// Parse those tokens into scope node
 			arg_node := Node{"args", NodeData{}, previous_node.Children}
-			scope_node := Node{"scope", NodeData{}, Parse(scope_tokens)}
+			scope_children, diags := Parse(scope_tokens)
+			scope_node := Node{"scope", NodeData{}, scope_children}
 			// Add function declararation node
 			output = append(output, Node{"function_declaration", NodeData{FunctionName: previous_node.Data.FunctionName}, []Node{arg_node, scope_node}})
+			diagnostics = append(diagnostics, diags...)
 			index += len(scope_tokens)
 		default:
 		}
 		index++
 	}
 
-	return output
+	return output, diagnostics
 }

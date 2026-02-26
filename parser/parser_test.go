@@ -32,7 +32,7 @@ func Test_Variable_Reference(t *testing.T) {
 	}
 	// =======================
 
-	result := p.Parse(input)
+	result, _ := p.Parse(input)
 	if !check_equal(targets, result) {
 		t.Fatalf("target != result")
 	}
@@ -45,7 +45,7 @@ func Test_String(t *testing.T) {
 	targets := []p.Node{
 		{"string", p.NodeData{Content: "Hello, world"}, []p.Node{}},
 	}
-	result := p.Parse(input)
+	result, _ := p.Parse(input)
 	if !check_equal(targets, result) {
 		t.Fatalf("targets: \n%v\nActual: \n%v\n", targets, result)
 	}
@@ -58,7 +58,7 @@ func Test_Number(t *testing.T) {
 	targets := []p.Node{
 		{"number", p.NodeData{Content: "23"}, []p.Node{}},
 	}
-	result := p.Parse(input)
+	result, _ := p.Parse(input)
 	if !check_equal(targets, result) {
 		t.Fatalf("targets: \n%v\nActual: \n%v\n", targets, result)
 	}
@@ -77,7 +77,7 @@ func Test_Simple_Expression(t *testing.T) {
 		}},
 	}
 
-	result := p.Parse(input)
+	result, _ := p.Parse(input)
 	if !check_equal(targets, result) {
 		t.Fatalf("targets: \n%v\nActual: \n%v\n", targets, result)
 	}
@@ -111,7 +111,7 @@ func Test_Complex_Expression(t *testing.T) {
 			}}}},
 		}},
 	}
-	results := p.Parse(input)
+	results, _ := p.Parse(input)
 
 	assert.Equal(t, targets, results)
 }
@@ -146,7 +146,8 @@ func Test_Variable_Assignment(t *testing.T) {
 		}},
 	}
 
-	assert.Equal(t, targets, p.Parse(input))
+	result, _ := p.Parse(input)
+	assert.Equal(t, targets, result)
 }
 
 func Test_Function_Call(t *testing.T) {
@@ -175,7 +176,8 @@ func Test_Function_Call(t *testing.T) {
 		}},
 	}
 
-	assert.Equal(t, target, p.Parse(input))
+	result, _ := p.Parse(input)
+	assert.Equal(t, target, result)
 }
 
 func Test_Threaded_Function_Call(t *testing.T) {
@@ -190,7 +192,8 @@ func Test_Threaded_Function_Call(t *testing.T) {
 		{"function_call", p.NodeData{FunctionName: "some_func", Thread: true}, []p.Node{}},
 	}
 
-	assert.Equal(t, target, p.Parse(input))
+	result, _ := p.Parse(input)
+	assert.Equal(t, target, result)
 }
 
 func Test_Function_Declaration(t *testing.T) {
@@ -225,7 +228,8 @@ func Test_Function_Declaration(t *testing.T) {
 		}},
 	}
 
-	assert.Equal(t, target, p.Parse(input))
+	result, _ := p.Parse(input)
+	assert.Equal(t, target, result)
 }
 
 func Test_IncludeStatement(t *testing.T) {
@@ -238,7 +242,8 @@ func Test_IncludeStatement(t *testing.T) {
 		{"include_statement", p.NodeData{Path: "path\\to\\file"}, []p.Node{}},
 	}
 
-	assert.Equal(t, target, p.Parse(input))
+	result, _ := p.Parse(input)
+	assert.Equal(t, target, result)
 }
 
 func Test_WaitStatement(t *testing.T) {
@@ -251,5 +256,6 @@ func Test_WaitStatement(t *testing.T) {
 		{"wait_statement", p.NodeData{Delay: "0.05"}, []p.Node{}},
 	}
 
-	assert.Equal(t, target, p.Parse(input))
+	result, _ := p.Parse(input)
+	assert.Equal(t, target, result)
 }
