@@ -12,6 +12,7 @@ type NodeData struct {
 	Operator     string `json:"operator,omitempty"`
 	Delay        string `json:"delay,omitempty"`
 	Thread       bool   `json:"thread,omitempty"`
+	Method       string `json:"method,omitempty"`
 	Content      string `json:"content,omitempty"`
 }
 
