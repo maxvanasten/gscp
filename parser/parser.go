@@ -1,8 +1,8 @@
 package parser
 
 import (
-	l "github.com/maxvanasten/gscp/lexer"
 	d "github.com/maxvanasten/gscp/diagnostics"
+	l "github.com/maxvanasten/gscp/lexer"
 )
 
 type NodeData struct {
@@ -97,30 +97,44 @@ func Parse(tokens []l.Token) ([]Node, []d.Diagnostic) {
 			if index <= 0 {
 				break
 			}
-			// Check if previous node is a variable_reference
-			previous_node := output[len(output)-1]
-			if previous_node.Type != "variable_reference" {
-				break
-			}
-			// Check if node before that is thread keyword
-			thread := false
-			if index-2 >= 0 {
-				pp_node := output[index-2]
-				if pp_node.Type == "thread_keyword" {
-					thread = true
-					output = output[:len(output)-1]
-				}
-			}
-			output = output[:len(output)-1]
-			// Get all tokens from OPEN_PAREN until CLOSE_PAREN
+
 			arg_tokens := l.TokensUntilAny(tokens[index+1:], []l.TokenType{l.CLOSE_PAREN})
-			// Add function call node
 			arg_children, diags := Parse(arg_tokens)
-			output = append(output, Node{"function_call", NodeData{FunctionName: previous_node.Data.VarName, Thread: thread}, arg_children})
 			diagnostics = append(diagnostics, diags...)
+
+			data := NodeData{}
+			if len(output)-1 >= 0 {
+				c := 0
+				if output[len(output)-1].Type == "variable_reference" {
+					c = 1
+					data.FunctionName = output[len(output)-1].Data.VarName
+					if len(output)-2 >= 0 {
+						if output[len(output)-2].Type == "thread_keyword" {
+							c = 2
+							data.Thread = true
+							if len(output)-3 >= 0 {
+								if output[len(output)-3].Type == "variable_reference" {
+									c = 3
+									data.Method = output[len(output)-3].Data.VarName
+								}
+							}
+						}
+						if output[len(output)-2].Type == "variable_reference" {
+							c = 2
+							data.Method = output[len(output)-2].Data.VarName
+						}
+					}
+				}
+				output = output[:len(output)-c]
+				output = append(output, Node{"function_call", data, arg_children})
+			}
+
 			index += len(arg_tokens)
 		case l.OPEN_CURLY:
 			// Check if previous node is a function_call
+			if len(output)-1 < 0 {
+				break
+			}
 			previous_node := output[len(output)-1]
 			if previous_node.Type != "function_call" {
 				output = append(output, Node{"open_curly", NodeData{}, []Node{}})
