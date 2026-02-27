@@ -34,7 +34,7 @@ gscp can be the backbone for future projects like a gsc language server or doing
 === RUN   TestLexer
 --- PASS: TestLexer (0.00s)
 PASS
-ok  	github.com/maxvanasten/gscp/lexer	0.002s
+ok      github.com/maxvanasten/gscp/lexer       0.003s
 === RUN   Test_Variable_Reference
 --- PASS: Test_Variable_Reference (0.00s)
 === RUN   Test_String
@@ -57,6 +57,8 @@ ok  	github.com/maxvanasten/gscp/lexer	0.002s
 --- PASS: Test_IncludeStatement (0.00s)
 === RUN   Test_WaitStatement
 --- PASS: Test_WaitStatement (0.00s)
+=== RUN   Test_Function_Calls
+--- PASS: Test_Function_Calls (0.00s)
 PASS
-ok  	github.com/maxvanasten/gscp/parser	0.004s
+ok      github.com/maxvanasten/gscp/parser      0.004s
 ```
