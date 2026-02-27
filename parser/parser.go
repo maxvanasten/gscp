@@ -1,6 +1,8 @@
 package parser
 
 import (
+	"strings"
+
 	d "github.com/maxvanasten/gscp/diagnostics"
 	l "github.com/maxvanasten/gscp/lexer"
 )
@@ -13,6 +15,7 @@ type NodeData struct {
 	Delay        string `json:"delay,omitempty"`
 	Thread       bool   `json:"thread,omitempty"`
 	Method       string `json:"method,omitempty"`
+	Index        string `json:"index,omitempty"`
 	Content      string `json:"content,omitempty"`
 }
 
@@ -20,6 +23,22 @@ type Node struct {
 	Type     string   `json:"type"`
 	Data     NodeData `json:"data"`
 	Children []Node   `json:"children,omitempty"`
+}
+
+func tokensToString(tokens []l.Token) string {
+	var builder strings.Builder
+	for _, token := range tokens {
+		switch token.Type {
+		case l.STRING:
+			builder.WriteString("\"")
+			builder.WriteString(token.Content)
+			builder.WriteString("\"")
+		default:
+			builder.WriteString(token.Content)
+		}
+	}
+
+	return builder.String()
 }
 
 func Parse(tokens []l.Token) ([]Node, []d.Diagnostic) {
@@ -93,14 +112,15 @@ func Parse(tokens []l.Token) ([]Node, []d.Diagnostic) {
 			ass_tokens := l.TokensUntilAny(tokens[index+1:], []l.TokenType{l.NEWLINE, l.TERMINATOR})
 
 			ass_children, diags := Parse(ass_tokens)
+			assignment_data := NodeData{VarName: previous_node.Data.VarName, Index: previous_node.Data.Index}
 			if tokens[index].Content == "+=" || tokens[index].Content == "-=" || tokens[index].Content == "*=" || tokens[index].Content == "/=" {
 				operator := tokens[index].Content[:1]
-				lhs := Node{"lhs", NodeData{}, []Node{{"variable_reference", NodeData{VarName: previous_node.Data.VarName}, []Node{}}}}
+				lhs := Node{"lhs", NodeData{}, []Node{previous_node}}
 				rhs := Node{"rhs", NodeData{}, ass_children}
 				expr := Node{"expression", NodeData{Operator: operator}, []Node{lhs, rhs}}
-				output = append(output, Node{"variable_assignment", NodeData{VarName: previous_node.Data.VarName}, []Node{expr}})
+				output = append(output, Node{"assignment", assignment_data, []Node{expr}})
 			} else {
-				output = append(output, Node{"variable_assignment", NodeData{VarName: previous_node.Data.VarName}, ass_children})
+				output = append(output, Node{"assignment", assignment_data, ass_children})
 			}
 			diagnostics = append(diagnostics, diags...)
 			index += len(ass_tokens)
@@ -230,6 +250,73 @@ func Parse(tokens []l.Token) ([]Node, []d.Diagnostic) {
 			}
 
 			index += len(arg_tokens)
+		case l.OPEN_BRACKET:
+			bracket_tokens := l.TokensUntilAny(tokens[index+1:], []l.TokenType{l.CLOSE_BRACKET})
+			if len(output)-1 >= 0 {
+				previous_node := output[len(output)-1]
+				if previous_node.Type == "variable_reference" {
+					index_tokens := bracket_tokens
+					if len(index_tokens) > 0 && index_tokens[len(index_tokens)-1].Type == l.CLOSE_BRACKET {
+						index_tokens = index_tokens[:len(index_tokens)-1]
+					}
+					index_content := tokensToString(index_tokens)
+					indexed_node := Node{"variable_reference", NodeData{VarName: previous_node.Data.VarName, Index: index_content}, []Node{}}
+					output = output[:len(output)-1]
+					output = append(output, indexed_node)
+					index += len(bracket_tokens)
+					break
+				}
+			}
+
+			array_tokens := bracket_tokens
+			if len(array_tokens) > 0 && array_tokens[len(array_tokens)-1].Type == l.CLOSE_BRACKET {
+				array_tokens = array_tokens[:len(array_tokens)-1]
+			}
+			elem_slices := [][]l.Token{}
+			buf := []l.Token{}
+			depthParen := 0
+			depthBracket := 0
+			for _, at := range array_tokens {
+				switch at.Type {
+				case l.OPEN_PAREN:
+					depthParen++
+					buf = append(buf, at)
+				case l.CLOSE_PAREN:
+					if depthParen > 0 {
+						depthParen--
+					}
+					buf = append(buf, at)
+				case l.OPEN_BRACKET:
+					depthBracket++
+					buf = append(buf, at)
+				case l.CLOSE_BRACKET:
+					if depthBracket > 0 {
+						depthBracket--
+					}
+					buf = append(buf, at)
+				case l.COMMA:
+					if depthParen == 0 && depthBracket == 0 {
+						elem_slices = append(elem_slices, buf)
+						buf = []l.Token{}
+					} else {
+						buf = append(buf, at)
+					}
+				default:
+					buf = append(buf, at)
+				}
+			}
+			if len(buf) > 0 {
+				elem_slices = append(elem_slices, buf)
+			}
+
+			array_children := []Node{}
+			for _, elem_tokens := range elem_slices {
+				children, diags := Parse(elem_tokens)
+				array_children = append(array_children, children...)
+				diagnostics = append(diagnostics, diags...)
+			}
+			output = append(output, Node{"array_literal", NodeData{}, array_children})
+			index += len(bracket_tokens)
 		case l.OPEN_CURLY:
 			if len(output)-1 < 0 {
 				break

@@ -154,10 +154,10 @@ func Test_Variable_Assignment(t *testing.T) {
 		{Type: l.TERMINATOR, Content: ";"},
 	}
 	targets := []p.Node{
-		{"variable_assignment", p.NodeData{VarName: "name"}, []p.Node{
+		{"assignment", p.NodeData{VarName: "name"}, []p.Node{
 			{"string", p.NodeData{Content: "Max"}, []p.Node{}},
 		}},
-		{"variable_assignment", p.NodeData{VarName: "message"}, []p.Node{
+		{"assignment", p.NodeData{VarName: "message"}, []p.Node{
 			{"expression", p.NodeData{Operator: "+"}, []p.Node{
 				{"lhs", p.NodeData{}, []p.Node{
 					{"string", p.NodeData{Content: "Hello "}, []p.Node{}},
@@ -181,10 +181,122 @@ func Test_Compound_Assignment(t *testing.T) {
 		{Type: l.TERMINATOR, Content: ";"},
 	}
 	targets := []p.Node{
-		{"variable_assignment", p.NodeData{VarName: "x"}, []p.Node{
+		{"assignment", p.NodeData{VarName: "x"}, []p.Node{
 			{"expression", p.NodeData{Operator: "+"}, []p.Node{
 				{"lhs", p.NodeData{}, []p.Node{
 					{"variable_reference", p.NodeData{VarName: "x"}, []p.Node{}},
+				}},
+				{"rhs", p.NodeData{}, []p.Node{
+					{"number", p.NodeData{Content: "1"}, []p.Node{}},
+				}},
+			}},
+		}},
+	}
+
+	result, _ := p.Parse(input)
+	assert.Equal(t, targets, result)
+}
+
+func Test_Array_Literal_Empty(t *testing.T) {
+	input := []l.Token{
+		{Type: l.SYMBOL, Content: "x"},
+		{Type: l.ASSIGNMENT, Content: "="},
+		{Type: l.OPEN_BRACKET, Content: "["},
+		{Type: l.CLOSE_BRACKET, Content: "]"},
+		{Type: l.TERMINATOR, Content: ";"},
+	}
+	targets := []p.Node{
+		{"assignment", p.NodeData{VarName: "x"}, []p.Node{
+			{"array_literal", p.NodeData{}, []p.Node{}},
+		}},
+	}
+
+	result, _ := p.Parse(input)
+	assert.Equal(t, targets, result)
+}
+
+func Test_Array_Literal_Multiple(t *testing.T) {
+	input := []l.Token{
+		{Type: l.SYMBOL, Content: "x"},
+		{Type: l.ASSIGNMENT, Content: "="},
+		{Type: l.OPEN_BRACKET, Content: "["},
+		{Type: l.NUMBER, Content: "1"},
+		{Type: l.COMMA, Content: ","},
+		{Type: l.STRING, Content: "a"},
+		{Type: l.COMMA, Content: ","},
+		{Type: l.SYMBOL, Content: "y"},
+		{Type: l.CLOSE_BRACKET, Content: "]"},
+		{Type: l.TERMINATOR, Content: ";"},
+	}
+	targets := []p.Node{
+		{"assignment", p.NodeData{VarName: "x"}, []p.Node{
+			{"array_literal", p.NodeData{}, []p.Node{
+				{"number", p.NodeData{Content: "1"}, []p.Node{}},
+				{"string", p.NodeData{Content: "a"}, []p.Node{}},
+				{"variable_reference", p.NodeData{VarName: "y"}, []p.Node{}},
+			}},
+		}},
+	}
+
+	result, _ := p.Parse(input)
+	assert.Equal(t, targets, result)
+}
+
+func Test_Array_Indexing(t *testing.T) {
+	input := []l.Token{
+		{Type: l.SYMBOL, Content: "x"},
+		{Type: l.ASSIGNMENT, Content: "="},
+		{Type: l.SYMBOL, Content: "arr"},
+		{Type: l.OPEN_BRACKET, Content: "["},
+		{Type: l.NUMBER, Content: "0"},
+		{Type: l.CLOSE_BRACKET, Content: "]"},
+		{Type: l.TERMINATOR, Content: ";"},
+	}
+	targets := []p.Node{
+		{"assignment", p.NodeData{VarName: "x"}, []p.Node{
+			{"variable_reference", p.NodeData{VarName: "arr", Index: "0"}, []p.Node{}},
+		}},
+	}
+
+	result, _ := p.Parse(input)
+	assert.Equal(t, targets, result)
+}
+
+func Test_Array_Index_Assignment(t *testing.T) {
+	input := []l.Token{
+		{Type: l.SYMBOL, Content: "arr"},
+		{Type: l.OPEN_BRACKET, Content: "["},
+		{Type: l.NUMBER, Content: "1"},
+		{Type: l.CLOSE_BRACKET, Content: "]"},
+		{Type: l.ASSIGNMENT, Content: "="},
+		{Type: l.STRING, Content: "x"},
+		{Type: l.TERMINATOR, Content: ";"},
+	}
+	targets := []p.Node{
+		{"assignment", p.NodeData{VarName: "arr", Index: "1"}, []p.Node{
+			{"string", p.NodeData{Content: "x"}, []p.Node{}},
+		}},
+	}
+
+	result, _ := p.Parse(input)
+	assert.Equal(t, targets, result)
+}
+
+func Test_Array_Index_Compound_Assignment(t *testing.T) {
+	input := []l.Token{
+		{Type: l.SYMBOL, Content: "arr"},
+		{Type: l.OPEN_BRACKET, Content: "["},
+		{Type: l.SYMBOL, Content: "i"},
+		{Type: l.CLOSE_BRACKET, Content: "]"},
+		{Type: l.ASSIGNMENT, Content: "+="},
+		{Type: l.NUMBER, Content: "1"},
+		{Type: l.TERMINATOR, Content: ";"},
+	}
+	targets := []p.Node{
+		{"assignment", p.NodeData{VarName: "arr", Index: "i"}, []p.Node{
+			{"expression", p.NodeData{Operator: "+"}, []p.Node{
+				{"lhs", p.NodeData{}, []p.Node{
+					{"variable_reference", p.NodeData{VarName: "arr", Index: "i"}, []p.Node{}},
 				}},
 				{"rhs", p.NodeData{}, []p.Node{
 					{"number", p.NodeData{Content: "1"}, []p.Node{}},
@@ -324,7 +436,7 @@ func Test_For_Loop_Common(t *testing.T) {
 	target := []p.Node{
 		{"for_loop", p.NodeData{}, []p.Node{
 			{"for_init", p.NodeData{}, []p.Node{
-				{"variable_assignment", p.NodeData{VarName: "i"}, []p.Node{
+				{"assignment", p.NodeData{VarName: "i"}, []p.Node{
 					{"number", p.NodeData{Content: "0"}, []p.Node{}},
 				}},
 			}},
@@ -339,7 +451,7 @@ func Test_For_Loop_Common(t *testing.T) {
 				}},
 			}},
 			{"for_post", p.NodeData{}, []p.Node{
-				{"variable_assignment", p.NodeData{VarName: "i"}, []p.Node{
+				{"assignment", p.NodeData{VarName: "i"}, []p.Node{
 					{"expression", p.NodeData{Operator: "+"}, []p.Node{
 						{"lhs", p.NodeData{}, []p.Node{
 							{"variable_reference", p.NodeData{VarName: "i"}, []p.Node{}},
