@@ -19,10 +19,15 @@ cd ./gscp/ && go build
 
 ## Usage
 ```bash
-./gscp input.gsc
+
+# Parse GSC file into AST and output the result on STDOUT
+./gscp -p input_file.gsc
+# Generate GSC file from AST JSON
+./gscp -g input_ast.json
+
 ```
 
-gscp outputs the abstract syntax tree in JSON format on STDOUT. I personally like to read the output of gscp by using `jq` and `bat` to format the json nicely, by running gscp like so: `./gscp input.gsc | jq | bat -l json`
+gscp outputs the abstract syntax tree in JSON format on STDOUT. You can format the JSON nicely with `jq` and `bat`, for example: `./gscp -p input.gsc | jq | bat -l json`
 
 ## Application
 
