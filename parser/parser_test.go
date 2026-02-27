@@ -1,10 +1,11 @@
 package parser_test
 
 import (
+	"testing"
+
 	l "github.com/maxvanasten/gscp/lexer"
 	p "github.com/maxvanasten/gscp/parser"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 func Test_Variable_Reference(t *testing.T) {
@@ -318,6 +319,35 @@ func Test_Function_Calls(t *testing.T) {
 		{"function_call", p.NodeData{FunctionName: "somefunc", Thread: true}, []p.Node{}},
 		{"function_call", p.NodeData{FunctionName: "somefunc", Method: "level"}, []p.Node{}},
 		{"function_call", p.NodeData{FunctionName: "somefunc"}, []p.Node{}},
+	}
+
+	result, _ := p.Parse(input)
+	assert.Equal(t, target, result)
+}
+
+func Test_Function_Call_Complex_Args(t *testing.T) {
+	input := []l.Token{
+		{Type: l.SYMBOL, Content: "somefunc"},
+		{Type: l.OPEN_PAREN, Content: "("},
+		{Type: l.SYMBOL, Content: "somefunc_arg"},
+		{Type: l.COMMA, Content: ","},
+		{Type: l.SYMBOL, Content: "child_func"},
+		{Type: l.OPEN_PAREN, Content: "("},
+		{Type: l.SYMBOL, Content: "child_arg1"},
+		{Type: l.COMMA, Content: ","},
+		{Type: l.SYMBOL, Content: "child_arg2"},
+		{Type: l.CLOSE_PAREN, Content: ")"},
+		{Type: l.CLOSE_PAREN, Content: ")"},
+	}
+
+	target := []p.Node{
+		{"function_call", p.NodeData{FunctionName: "somefunc"}, []p.Node{
+			{"variable_reference", p.NodeData{VarName: "somefunc_arg"}, []p.Node{}},
+			{"function_call", p.NodeData{FunctionName: "child_func"}, []p.Node{
+				{"variable_reference", p.NodeData{VarName: "child_arg1"}, []p.Node{}},
+				{"variable_reference", p.NodeData{VarName: "child_arg2"}, []p.Node{}},
+			}},
+		}},
 	}
 
 	result, _ := p.Parse(input)
