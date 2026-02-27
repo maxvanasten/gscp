@@ -93,6 +93,51 @@ func Test_Complex_Expression(t *testing.T) {
 	assert.Equal(t, targets, results)
 }
 
+func Test_Complex_Math_Expression(t *testing.T) {
+	input := []l.Token{
+		{Type: l.NUMBER, Content: "5"},
+		{Type: l.OPERATOR, Content: "+"},
+		{Type: l.OPEN_PAREN, Content: "("},
+		{Type: l.NUMBER, Content: "6"},
+		{Type: l.OPERATOR, Content: "*"},
+		{Type: l.OPEN_PAREN, Content: "("},
+		{Type: l.NUMBER, Content: "7"},
+		{Type: l.OPERATOR, Content: "+"},
+		{Type: l.NUMBER, Content: "8"},
+		{Type: l.CLOSE_PAREN, Content: ")"},
+		{Type: l.CLOSE_PAREN, Content: ")"},
+		{Type: l.TERMINATOR, Content: ";"},
+	}
+
+	target := []p.Node{
+		{"expression", p.NodeData{Operator: "+"}, []p.Node{
+			{"lhs", p.NodeData{}, []p.Node{
+				{"number", p.NodeData{Content: "5"}, []p.Node{}},
+			}},
+			{"rhs", p.NodeData{}, []p.Node{
+				{"expression", p.NodeData{Operator: "*"}, []p.Node{
+					{"lhs", p.NodeData{}, []p.Node{
+						{"number", p.NodeData{Content: "6"}, []p.Node{}},
+					}},
+					{"rhs", p.NodeData{}, []p.Node{
+						{"expression", p.NodeData{Operator: "+"}, []p.Node{
+							{"lhs", p.NodeData{}, []p.Node{
+								{"number", p.NodeData{Content: "7"}, []p.Node{}},
+							}},
+							{"rhs", p.NodeData{}, []p.Node{
+								{"number", p.NodeData{Content: "8"}, []p.Node{}},
+							}},
+						}},
+					}},
+				}},
+			}},
+		}},
+	}
+
+	result, _ := p.Parse(input)
+	assert.Equal(t, target, result)
+}
+
 func Test_Variable_Assignment(t *testing.T) {
 	input := []l.Token{
 		{Type: l.SYMBOL, Content: "name"},
