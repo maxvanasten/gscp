@@ -92,6 +92,55 @@ func Parse(tokens []l.Token) ([]Node, []d.Diagnostic) {
 		case l.NUMBER:
 			output = append(output, Node{"number", NodeData{Content: tokens[index].Content}, []Node{}})
 		case l.OPERATOR:
+			// Unary operator handling
+			if tokens[index].Content == "!" || tokens[index].Content == "-" {
+				isUnary := index == 0
+				if index > 0 {
+					prev := tokens[index-1].Type
+					if prev == l.OPERATOR || prev == l.ASSIGNMENT || prev == l.OPEN_PAREN || prev == l.OPEN_BRACKET || prev == l.COMMA || prev == l.NEWLINE || prev == l.TERMINATOR {
+						isUnary = true
+					}
+				}
+				if isUnary {
+					operand_tokens := []l.Token{}
+					depthParen := 0
+					depthBracket := 0
+					for i := index + 1; i < len(tokens); i++ {
+						curr := tokens[i]
+						if depthParen == 0 && depthBracket == 0 {
+							if curr.Type == l.OPERATOR || curr.Type == l.TERMINATOR || curr.Type == l.COMMA || curr.Type == l.NEWLINE || curr.Type == l.CLOSE_PAREN || curr.Type == l.CLOSE_BRACKET || curr.Type == l.CLOSE_CURLY {
+								break
+							}
+						}
+						switch curr.Type {
+						case l.OPEN_PAREN:
+							depthParen++
+						case l.CLOSE_PAREN:
+							if depthParen > 0 {
+								depthParen--
+							}
+						case l.OPEN_BRACKET:
+							depthBracket++
+						case l.CLOSE_BRACKET:
+							if depthBracket > 0 {
+								depthBracket--
+							}
+						}
+						operand_tokens = append(operand_tokens, curr)
+					}
+					if len(operand_tokens) > 0 {
+						operand_children, diags := Parse(operand_tokens)
+						if len(operand_children) > 0 {
+							operand := operand_children[0]
+							output = append(output, Node{"unary_expression", NodeData{Operator: tokens[index].Content}, []Node{operand}})
+							diagnostics = append(diagnostics, diags...)
+							index += len(operand_tokens)
+							break
+						}
+						diagnostics = append(diagnostics, diags...)
+					}
+				}
+			}
 			if index <= 0 {
 				break
 			}
@@ -108,6 +157,34 @@ func Parse(tokens []l.Token) ([]Node, []d.Diagnostic) {
 				output = output[:len(output)-1]
 				// Get all tokens from OPERATOR until END, NEWLINE or TERMINATOR
 				expr_tokens := l.TokensUntilAny(tokens[index+1:], []l.TokenType{l.NEWLINE, l.TERMINATOR})
+				if tokens[index].Content == "&&" {
+					depthParen := 0
+					depthBracket := 0
+					cutIndex := -1
+					for i, tok := range expr_tokens {
+						switch tok.Type {
+						case l.OPEN_PAREN:
+							depthParen++
+						case l.CLOSE_PAREN:
+							if depthParen > 0 {
+								depthParen--
+							}
+						case l.OPEN_BRACKET:
+							depthBracket++
+						case l.CLOSE_BRACKET:
+							if depthBracket > 0 {
+								depthBracket--
+							}
+						}
+						if depthParen == 0 && depthBracket == 0 && tok.Type == l.OPERATOR && tok.Content == "||" {
+							cutIndex = i
+							break
+						}
+					}
+					if cutIndex >= 0 {
+						expr_tokens = expr_tokens[:cutIndex]
+					}
+				}
 				// Parse those tokens into RHS
 				rhs_children, diags := Parse(expr_tokens)
 				rhs := Node{"rhs", NodeData{}, rhs_children}

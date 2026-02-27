@@ -106,6 +106,33 @@ func Test_Complex_Expression(t *testing.T) {
 	assert.Equal(t, targets, results)
 }
 
+func Test_Logical_Expression_Precedence(t *testing.T) {
+	input := []l.Token{
+		{Type: l.SYMBOL, Content: "a"},
+		{Type: l.OPERATOR, Content: "&&"},
+		{Type: l.SYMBOL, Content: "b"},
+		{Type: l.OPERATOR, Content: "||"},
+		{Type: l.SYMBOL, Content: "c"},
+		{Type: l.TERMINATOR, Content: ";"},
+	}
+	targets := []p.Node{
+		{"expression", p.NodeData{Operator: "||"}, []p.Node{
+			{"lhs", p.NodeData{}, []p.Node{
+				{"expression", p.NodeData{Operator: "&&"}, []p.Node{
+					{"lhs", p.NodeData{}, []p.Node{{"variable_reference", p.NodeData{VarName: "a"}, []p.Node{}}}},
+					{"rhs", p.NodeData{}, []p.Node{{"variable_reference", p.NodeData{VarName: "b"}, []p.Node{}}}},
+				}},
+			}},
+			{"rhs", p.NodeData{}, []p.Node{
+				{"variable_reference", p.NodeData{VarName: "c"}, []p.Node{}},
+			}},
+		}},
+	}
+
+	result, _ := p.Parse(input)
+	assert.Equal(t, targets, result)
+}
+
 func Test_Complex_Math_Expression(t *testing.T) {
 	input := []l.Token{
 		{Type: l.NUMBER, Content: "5"},
@@ -202,6 +229,21 @@ func Test_Compound_Assignment(t *testing.T) {
 					{"number", p.NodeData{Content: "1"}, []p.Node{}},
 				}},
 			}},
+		}},
+	}
+
+	result, _ := p.Parse(input)
+	assert.Equal(t, targets, result)
+}
+
+func Test_Unary_Expression(t *testing.T) {
+	input := []l.Token{
+		{Type: l.OPERATOR, Content: "!"},
+		{Type: l.SYMBOL, Content: "true"},
+	}
+	targets := []p.Node{
+		{"unary_expression", p.NodeData{Operator: "!"}, []p.Node{
+			{"boolean", p.NodeData{Content: "true"}, []p.Node{}},
 		}},
 	}
 
