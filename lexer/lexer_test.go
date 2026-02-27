@@ -225,3 +225,18 @@ func TestLexerComparisonOperators(t *testing.T) {
 
 	assertTokens(t, input, targets)
 }
+
+func TestLexerLogicalOperators(t *testing.T) {
+	input := []byte("a && b || c;")
+
+	targets := []lexer.Token{
+		{lexer.SYMBOL, "a"},
+		{lexer.OPERATOR, "&&"},
+		{lexer.SYMBOL, "b"},
+		{lexer.OPERATOR, "||"},
+		{lexer.SYMBOL, "c"},
+		{lexer.TERMINATOR, ";"},
+	}
+
+	assertTokens(t, input, targets)
+}

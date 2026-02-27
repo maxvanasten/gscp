@@ -188,6 +188,15 @@ func (l *Lexer) HandleCharacter(c byte) int {
 		l.HandleBuffer()
 		l.tokens = append(l.tokens, Token{Type: OPERATOR, Content: strings.TrimSpace(string(c))})
 		return 1
+	case '&', '|':
+		if l.index+1 < len(l.input) && l.input[l.index+1] == c {
+			l.HandleBuffer()
+			l.tokens = append(l.tokens, Token{Type: OPERATOR, Content: string([]byte{c, c})})
+			return 2
+		}
+		l.HandleBuffer()
+		l.tokens = append(l.tokens, Token{Type: OPERATOR, Content: strings.TrimSpace(string(c))})
+		return 1
 	case '=':
 		if l.index+1 < len(l.input) && l.input[l.index+1] == '=' {
 			l.HandleBuffer()
