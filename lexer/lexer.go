@@ -143,7 +143,6 @@ func (l *Lexer) HandleBuffer() {
 
 		if is_number {
 			l.tokens = append(l.tokens, Token{Type: NUMBER, Content: string(l.buffer)})
-
 		} else {
 			// Check if symbol is valid
 			if unicode.IsLetter(rune(l.buffer[0])) || l.buffer[0] == '#' {
@@ -169,7 +168,16 @@ func TokensUntilAny(tokens []Token, targets []TokenType) []Token {
 
 func (l *Lexer) HandleCharacter(c byte) int {
 	switch c {
-	case '\n', '(', '[', '{', ')', ']', '}', '+', '-', '*', '/', '=', ';', ',':
+	case '+', '-', '*', '/':
+		if l.index+1 < len(l.input) && l.input[l.index+1] == '=' {
+			l.HandleBuffer()
+			l.tokens = append(l.tokens, Token{Type: ASSIGNMENT, Content: string([]byte{c, '='})})
+			return 2
+		}
+		l.HandleBuffer()
+		l.tokens = append(l.tokens, Token{Type: OPERATOR, Content: strings.TrimSpace(string(c))})
+		return 1
+	case '\n', '(', '[', '{', ')', ']', '}', '=', ';', ',':
 		l.HandleBuffer()
 		token_type := TokenTypeFromChar(c)
 		l.tokens = append(l.tokens, Token{Type: token_type, Content: strings.TrimSpace(string(c))})
