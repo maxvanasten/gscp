@@ -279,6 +279,85 @@ func Test_Function_Declaration(t *testing.T) {
 	assert.Equal(t, target, result)
 }
 
+func Test_For_Loop_Infinite(t *testing.T) {
+	input := []l.Token{
+		{Type: l.SYMBOL, Content: "for"},
+		{Type: l.OPEN_PAREN, Content: "("},
+		{Type: l.TERMINATOR, Content: ";"},
+		{Type: l.TERMINATOR, Content: ";"},
+		{Type: l.CLOSE_PAREN, Content: ")"},
+		{Type: l.OPEN_CURLY, Content: "{"},
+		{Type: l.CLOSE_CURLY, Content: "}"},
+	}
+	target := []p.Node{
+		{"for_loop", p.NodeData{}, []p.Node{
+			{"for_init", p.NodeData{}, []p.Node{}},
+			{"for_condition", p.NodeData{}, []p.Node{}},
+			{"for_post", p.NodeData{}, []p.Node{}},
+			{"scope", p.NodeData{}, []p.Node{}},
+		}},
+	}
+
+	result, _ := p.Parse(input)
+	assert.Equal(t, target, result)
+}
+
+func Test_For_Loop_Common(t *testing.T) {
+	input := []l.Token{
+		{Type: l.SYMBOL, Content: "for"},
+		{Type: l.OPEN_PAREN, Content: "("},
+		{Type: l.SYMBOL, Content: "i"},
+		{Type: l.ASSIGNMENT, Content: "="},
+		{Type: l.NUMBER, Content: "0"},
+		{Type: l.TERMINATOR, Content: ";"},
+		{Type: l.SYMBOL, Content: "i"},
+		{Type: l.OPERATOR, Content: "<"},
+		{Type: l.NUMBER, Content: "10"},
+		{Type: l.TERMINATOR, Content: ";"},
+		{Type: l.SYMBOL, Content: "i"},
+		{Type: l.ASSIGNMENT, Content: "+="},
+		{Type: l.NUMBER, Content: "1"},
+		{Type: l.CLOSE_PAREN, Content: ")"},
+		{Type: l.OPEN_CURLY, Content: "{"},
+		{Type: l.CLOSE_CURLY, Content: "}"},
+	}
+	target := []p.Node{
+		{"for_loop", p.NodeData{}, []p.Node{
+			{"for_init", p.NodeData{}, []p.Node{
+				{"variable_assignment", p.NodeData{VarName: "i"}, []p.Node{
+					{"number", p.NodeData{Content: "0"}, []p.Node{}},
+				}},
+			}},
+			{"for_condition", p.NodeData{}, []p.Node{
+				{"expression", p.NodeData{Operator: "<"}, []p.Node{
+					{"lhs", p.NodeData{}, []p.Node{
+						{"variable_reference", p.NodeData{VarName: "i"}, []p.Node{}},
+					}},
+					{"rhs", p.NodeData{}, []p.Node{
+						{"number", p.NodeData{Content: "10"}, []p.Node{}},
+					}},
+				}},
+			}},
+			{"for_post", p.NodeData{}, []p.Node{
+				{"variable_assignment", p.NodeData{VarName: "i"}, []p.Node{
+					{"expression", p.NodeData{Operator: "+"}, []p.Node{
+						{"lhs", p.NodeData{}, []p.Node{
+							{"variable_reference", p.NodeData{VarName: "i"}, []p.Node{}},
+						}},
+						{"rhs", p.NodeData{}, []p.Node{
+							{"number", p.NodeData{Content: "1"}, []p.Node{}},
+						}},
+					}},
+				}},
+			}},
+			{"scope", p.NodeData{}, []p.Node{}},
+		}},
+	}
+
+	result, _ := p.Parse(input)
+	assert.Equal(t, target, result)
+}
+
 func Test_IncludeStatement(t *testing.T) {
 	input := []l.Token{
 		{Type: l.SYMBOL, Content: "#include"},
