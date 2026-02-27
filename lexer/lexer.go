@@ -112,6 +112,8 @@ func TokenTypeFromChar(char byte) TokenType {
 		return NEWLINE
 	case ',':
 		return COMMA
+	case '<', '>':
+		return OPERATOR
 	default:
 		return EOF
 	}
@@ -177,7 +179,34 @@ func (l *Lexer) HandleCharacter(c byte) int {
 		l.HandleBuffer()
 		l.tokens = append(l.tokens, Token{Type: OPERATOR, Content: strings.TrimSpace(string(c))})
 		return 1
-	case '\n', '(', '[', '{', ')', ']', '}', '=', ';', ',':
+	case '<', '>':
+		if l.index+1 < len(l.input) && l.input[l.index+1] == '=' {
+			l.HandleBuffer()
+			l.tokens = append(l.tokens, Token{Type: OPERATOR, Content: string([]byte{c, '='})})
+			return 2
+		}
+		l.HandleBuffer()
+		l.tokens = append(l.tokens, Token{Type: OPERATOR, Content: strings.TrimSpace(string(c))})
+		return 1
+	case '=':
+		if l.index+1 < len(l.input) && l.input[l.index+1] == '=' {
+			l.HandleBuffer()
+			l.tokens = append(l.tokens, Token{Type: OPERATOR, Content: "=="})
+			return 2
+		}
+		l.HandleBuffer()
+		l.tokens = append(l.tokens, Token{Type: ASSIGNMENT, Content: "="})
+		return 1
+	case '!':
+		if l.index+1 < len(l.input) && l.input[l.index+1] == '=' {
+			l.HandleBuffer()
+			l.tokens = append(l.tokens, Token{Type: OPERATOR, Content: "!="})
+			return 2
+		}
+		l.HandleBuffer()
+		l.tokens = append(l.tokens, Token{Type: OPERATOR, Content: "!"})
+		return 1
+	case '\n', '(', '[', '{', ')', ']', '}', ';', ',':
 		l.HandleBuffer()
 		token_type := TokenTypeFromChar(c)
 		l.tokens = append(l.tokens, Token{Type: token_type, Content: strings.TrimSpace(string(c))})
