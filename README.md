@@ -45,6 +45,8 @@ ok      github.com/maxvanasten/gscp/lexer       0.003s
 --- PASS: Test_Simple_Expression (0.00s)
 === RUN   Test_Complex_Expression
 --- PASS: Test_Complex_Expression (0.00s)
+=== RUN   Test_Complex_Math_Expression
+--- PASS: Test_Complex_Math_Expression (0.00s)
 === RUN   Test_Variable_Assignment
 --- PASS: Test_Variable_Assignment (0.00s)
 === RUN   Test_Function_Call
@@ -59,6 +61,8 @@ ok      github.com/maxvanasten/gscp/lexer       0.003s
 --- PASS: Test_WaitStatement (0.00s)
 === RUN   Test_Function_Calls
 --- PASS: Test_Function_Calls (0.00s)
+=== RUN   Test_Function_Call_Complex_Args
+--- PASS: Test_Function_Call_Complex_Args (0.00s)
 PASS
-ok      github.com/maxvanasten/gscp/parser      0.004s
+ok      github.com/maxvanasten/gscp/parser      0.005s
 ```
