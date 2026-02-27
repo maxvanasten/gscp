@@ -55,6 +55,9 @@ func Parse(tokens []l.Token) ([]Node, []d.Diagnostic) {
 			if index <= 0 {
 				break
 			}
+			if len(output) == 0 {
+				break
+			}
 			// Check if previous node is either a string, variable_reference, number, function_call or another expression
 			previous_node := output[len(output)-1]
 			switch previous_node.Type {
@@ -90,7 +93,15 @@ func Parse(tokens []l.Token) ([]Node, []d.Diagnostic) {
 			ass_tokens := l.TokensUntilAny(tokens[index+1:], []l.TokenType{l.NEWLINE, l.TERMINATOR})
 
 			ass_children, diags := Parse(ass_tokens)
-			output = append(output, Node{"variable_assignment", NodeData{VarName: previous_node.Data.VarName}, ass_children})
+			if tokens[index].Content == "+=" || tokens[index].Content == "-=" || tokens[index].Content == "*=" || tokens[index].Content == "/=" {
+				operator := tokens[index].Content[:1]
+				lhs := Node{"lhs", NodeData{}, []Node{{"variable_reference", NodeData{VarName: previous_node.Data.VarName}, []Node{}}}}
+				rhs := Node{"rhs", NodeData{}, ass_children}
+				expr := Node{"expression", NodeData{Operator: operator}, []Node{lhs, rhs}}
+				output = append(output, Node{"variable_assignment", NodeData{VarName: previous_node.Data.VarName}, []Node{expr}})
+			} else {
+				output = append(output, Node{"variable_assignment", NodeData{VarName: previous_node.Data.VarName}, ass_children})
+			}
 			diagnostics = append(diagnostics, diags...)
 			index += len(ass_tokens)
 		case l.OPEN_PAREN:
