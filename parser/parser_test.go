@@ -33,6 +33,18 @@ func Test_String(t *testing.T) {
 	assert.Equal(t, targets, result)
 }
 
+func Test_Boolean(t *testing.T) {
+	input := []l.Token{
+		{Type: l.SYMBOL, Content: "true"},
+	}
+	targets := []p.Node{
+		{"boolean", p.NodeData{Content: "true"}, []p.Node{}},
+	}
+
+	result, _ := p.Parse(input)
+	assert.Equal(t, targets, result)
+}
+
 func Test_Number(t *testing.T) {
 	input := []l.Token{
 		{Type: l.NUMBER, Content: "23"},
@@ -464,6 +476,121 @@ func Test_For_Loop_Common(t *testing.T) {
 			}},
 			{"scope", p.NodeData{}, []p.Node{}},
 		}},
+	}
+
+	result, _ := p.Parse(input)
+	assert.Equal(t, target, result)
+}
+
+func Test_If_Else(t *testing.T) {
+	input := []l.Token{
+		{Type: l.SYMBOL, Content: "if"},
+		{Type: l.OPEN_PAREN, Content: "("},
+		{Type: l.SYMBOL, Content: "cond"},
+		{Type: l.CLOSE_PAREN, Content: ")"},
+		{Type: l.OPEN_CURLY, Content: "{"},
+		{Type: l.CLOSE_CURLY, Content: "}"},
+		{Type: l.SYMBOL, Content: "else"},
+		{Type: l.OPEN_CURLY, Content: "{"},
+		{Type: l.CLOSE_CURLY, Content: "}"},
+	}
+	target := []p.Node{
+		{"if_statement", p.NodeData{}, []p.Node{
+			{"condition", p.NodeData{}, []p.Node{
+				{"variable_reference", p.NodeData{VarName: "cond"}, []p.Node{}},
+			}},
+			{"scope", p.NodeData{}, []p.Node{}},
+		}},
+		{"else_clause", p.NodeData{}, []p.Node{
+			{"scope", p.NodeData{}, []p.Node{}},
+		}},
+	}
+
+	result, _ := p.Parse(input)
+	assert.Equal(t, target, result)
+}
+
+func Test_While_Loop(t *testing.T) {
+	input := []l.Token{
+		{Type: l.SYMBOL, Content: "while"},
+		{Type: l.OPEN_PAREN, Content: "("},
+		{Type: l.SYMBOL, Content: "running"},
+		{Type: l.CLOSE_PAREN, Content: ")"},
+		{Type: l.OPEN_CURLY, Content: "{"},
+		{Type: l.CLOSE_CURLY, Content: "}"},
+	}
+	target := []p.Node{
+		{"while_loop", p.NodeData{}, []p.Node{
+			{"condition", p.NodeData{}, []p.Node{{"variable_reference", p.NodeData{VarName: "running"}, []p.Node{}}}},
+			{"scope", p.NodeData{}, []p.Node{}},
+		}},
+	}
+
+	result, _ := p.Parse(input)
+	assert.Equal(t, target, result)
+}
+
+func Test_Foreach_Loop(t *testing.T) {
+	input := []l.Token{
+		{Type: l.SYMBOL, Content: "foreach"},
+		{Type: l.OPEN_PAREN, Content: "("},
+		{Type: l.SYMBOL, Content: "item"},
+		{Type: l.SYMBOL, Content: "in"},
+		{Type: l.SYMBOL, Content: "items"},
+		{Type: l.CLOSE_PAREN, Content: ")"},
+		{Type: l.OPEN_CURLY, Content: "{"},
+		{Type: l.CLOSE_CURLY, Content: "}"},
+	}
+	target := []p.Node{
+		{"foreach_loop", p.NodeData{}, []p.Node{
+			{"foreach_vars", p.NodeData{}, []p.Node{{"variable_reference", p.NodeData{VarName: "item"}, []p.Node{}}}},
+			{"foreach_iter", p.NodeData{}, []p.Node{{"variable_reference", p.NodeData{VarName: "items"}, []p.Node{}}}},
+			{"scope", p.NodeData{}, []p.Node{}},
+		}},
+	}
+
+	result, _ := p.Parse(input)
+	assert.Equal(t, target, result)
+}
+
+func Test_Switch_Case_Default(t *testing.T) {
+	input := []l.Token{
+		{Type: l.SYMBOL, Content: "switch"},
+		{Type: l.OPEN_PAREN, Content: "("},
+		{Type: l.SYMBOL, Content: "x"},
+		{Type: l.CLOSE_PAREN, Content: ")"},
+		{Type: l.OPEN_CURLY, Content: "{"},
+		{Type: l.SYMBOL, Content: "case"},
+		{Type: l.NUMBER, Content: "1"},
+		{Type: l.TERMINATOR, Content: ";"},
+		{Type: l.SYMBOL, Content: "break"},
+		{Type: l.TERMINATOR, Content: ";"},
+		{Type: l.SYMBOL, Content: "default"},
+		{Type: l.CLOSE_CURLY, Content: "}"},
+	}
+	target := []p.Node{
+		{"switch_statement", p.NodeData{}, []p.Node{
+			{"switch_expr", p.NodeData{}, []p.Node{{"variable_reference", p.NodeData{VarName: "x"}, []p.Node{}}}},
+			{"scope", p.NodeData{}, []p.Node{
+				{"case_clause", p.NodeData{}, []p.Node{{"number", p.NodeData{Content: "1"}, []p.Node{}}}},
+				{"break_statement", p.NodeData{}, []p.Node{}},
+				{"default_clause", p.NodeData{}, []p.Node{}},
+			}},
+		}},
+	}
+
+	result, _ := p.Parse(input)
+	assert.Equal(t, target, result)
+}
+
+func Test_Return_Statement(t *testing.T) {
+	input := []l.Token{
+		{Type: l.SYMBOL, Content: "return"},
+		{Type: l.SYMBOL, Content: "value"},
+		{Type: l.TERMINATOR, Content: ";"},
+	}
+	target := []p.Node{
+		{"return_statement", p.NodeData{}, []p.Node{{"variable_reference", p.NodeData{VarName: "value"}, []p.Node{}}}},
 	}
 
 	result, _ := p.Parse(input)
