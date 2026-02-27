@@ -7,21 +7,6 @@ import (
 	"testing"
 )
 
-func check_equal(targets []p.Node, actual []p.Node) bool {
-	if len(targets) == 0 || len(actual) == 0 {
-		return false
-	}
-	for i, n := range targets {
-		if n.Type != actual[i].Type {
-			return false
-		}
-		if len(targets[i].Children) > 0 {
-
-		}
-	}
-	return true
-}
-
 func Test_Variable_Reference(t *testing.T) {
 	// =======================
 	input := []l.Token{
@@ -33,9 +18,7 @@ func Test_Variable_Reference(t *testing.T) {
 	// =======================
 
 	result, _ := p.Parse(input)
-	if !check_equal(targets, result) {
-		t.Fatalf("target != result")
-	}
+	assert.Equal(t, targets, result)
 }
 
 func Test_String(t *testing.T) {
@@ -46,9 +29,7 @@ func Test_String(t *testing.T) {
 		{"string", p.NodeData{Content: "Hello, world"}, []p.Node{}},
 	}
 	result, _ := p.Parse(input)
-	if !check_equal(targets, result) {
-		t.Fatalf("targets: \n%v\nActual: \n%v\n", targets, result)
-	}
+	assert.Equal(t, targets, result)
 }
 
 func Test_Number(t *testing.T) {
@@ -59,9 +40,7 @@ func Test_Number(t *testing.T) {
 		{"number", p.NodeData{Content: "23"}, []p.Node{}},
 	}
 	result, _ := p.Parse(input)
-	if !check_equal(targets, result) {
-		t.Fatalf("targets: \n%v\nActual: \n%v\n", targets, result)
-	}
+	assert.Equal(t, targets, result)
 }
 
 func Test_Simple_Expression(t *testing.T) {
@@ -78,9 +57,7 @@ func Test_Simple_Expression(t *testing.T) {
 	}
 
 	result, _ := p.Parse(input)
-	if !check_equal(targets, result) {
-		t.Fatalf("targets: \n%v\nActual: \n%v\n", targets, result)
-	}
+	assert.Equal(t, targets, result)
 }
 
 func Test_Complex_Expression(t *testing.T) {
