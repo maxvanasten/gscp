@@ -240,10 +240,6 @@ func Parse(tokens []l.Token) ([]Node, []d.Diagnostic) {
 			diagnostics = append(diagnostics, diags...)
 			index += len(ass_tokens)
 		case l.OPEN_PAREN:
-			if index <= 0 {
-				break
-			}
-
 			arg_tokens := tokensUntilMatchingClose(tokens[index+1:], l.OPEN_PAREN, l.CLOSE_PAREN)
 			if len(output)-1 >= 0 {
 				previous_node := output[len(output)-1]
