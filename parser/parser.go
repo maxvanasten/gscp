@@ -591,8 +591,8 @@ func Parse(tokens []l.Token) ([]Node, []d.Diagnostic) {
 			switch previous_node.Type {
 			case "function_call":
 				output = output[:len(output)-1]
-				// Get all tokens from OPEN_CURLY until CLOSE_CURLY
-				scope_tokens := l.TokensUntilAny(tokens[index+1:], []l.TokenType{l.CLOSE_CURLY})
+				// Get all tokens from OPEN_CURLY until matching CLOSE_CURLY
+				scope_tokens := tokensUntilMatchingClose(tokens[index+1:], l.OPEN_CURLY, l.CLOSE_CURLY)
 				// Parse those tokens into scope node
 				arg_node := Node{"args", NodeData{}, previous_node.Children}
 				scope_children, diags := Parse(scope_tokens)
@@ -603,7 +603,7 @@ func Parse(tokens []l.Token) ([]Node, []d.Diagnostic) {
 				index += len(scope_tokens)
 			case "for_header":
 				output = output[:len(output)-1]
-				scope_tokens := l.TokensUntilAny(tokens[index+1:], []l.TokenType{l.CLOSE_CURLY})
+				scope_tokens := tokensUntilMatchingClose(tokens[index+1:], l.OPEN_CURLY, l.CLOSE_CURLY)
 				scope_children, diags := Parse(scope_tokens)
 				scope_node := Node{"scope", NodeData{}, scope_children}
 				for_children := append(previous_node.Children, scope_node)
@@ -612,7 +612,7 @@ func Parse(tokens []l.Token) ([]Node, []d.Diagnostic) {
 				index += len(scope_tokens)
 			case "if_header":
 				output = output[:len(output)-1]
-				scope_tokens := l.TokensUntilAny(tokens[index+1:], []l.TokenType{l.CLOSE_CURLY})
+				scope_tokens := tokensUntilMatchingClose(tokens[index+1:], l.OPEN_CURLY, l.CLOSE_CURLY)
 				scope_children, diags := Parse(scope_tokens)
 				scope_node := Node{"scope", NodeData{}, scope_children}
 				if_children := append(previous_node.Children, scope_node)
@@ -621,7 +621,7 @@ func Parse(tokens []l.Token) ([]Node, []d.Diagnostic) {
 				index += len(scope_tokens)
 			case "while_header":
 				output = output[:len(output)-1]
-				scope_tokens := l.TokensUntilAny(tokens[index+1:], []l.TokenType{l.CLOSE_CURLY})
+				scope_tokens := tokensUntilMatchingClose(tokens[index+1:], l.OPEN_CURLY, l.CLOSE_CURLY)
 				scope_children, diags := Parse(scope_tokens)
 				scope_node := Node{"scope", NodeData{}, scope_children}
 				while_children := append(previous_node.Children, scope_node)
@@ -630,7 +630,7 @@ func Parse(tokens []l.Token) ([]Node, []d.Diagnostic) {
 				index += len(scope_tokens)
 			case "foreach_header":
 				output = output[:len(output)-1]
-				scope_tokens := l.TokensUntilAny(tokens[index+1:], []l.TokenType{l.CLOSE_CURLY})
+				scope_tokens := tokensUntilMatchingClose(tokens[index+1:], l.OPEN_CURLY, l.CLOSE_CURLY)
 				scope_children, diags := Parse(scope_tokens)
 				scope_node := Node{"scope", NodeData{}, scope_children}
 				foreach_children := append(previous_node.Children, scope_node)
@@ -639,7 +639,7 @@ func Parse(tokens []l.Token) ([]Node, []d.Diagnostic) {
 				index += len(scope_tokens)
 			case "switch_header":
 				output = output[:len(output)-1]
-				scope_tokens := l.TokensUntilAny(tokens[index+1:], []l.TokenType{l.CLOSE_CURLY})
+				scope_tokens := tokensUntilMatchingClose(tokens[index+1:], l.OPEN_CURLY, l.CLOSE_CURLY)
 				scope_children, diags := Parse(scope_tokens)
 				scope_node := Node{"scope", NodeData{}, scope_children}
 				switch_children := append(previous_node.Children, scope_node)
@@ -648,7 +648,7 @@ func Parse(tokens []l.Token) ([]Node, []d.Diagnostic) {
 				index += len(scope_tokens)
 			case "else_header":
 				output = output[:len(output)-1]
-				scope_tokens := l.TokensUntilAny(tokens[index+1:], []l.TokenType{l.CLOSE_CURLY})
+				scope_tokens := tokensUntilMatchingClose(tokens[index+1:], l.OPEN_CURLY, l.CLOSE_CURLY)
 				scope_children, diags := Parse(scope_tokens)
 				scope_node := Node{"scope", NodeData{}, scope_children}
 				output = append(output, Node{"else_clause", NodeData{}, []Node{scope_node}})

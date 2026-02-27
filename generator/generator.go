@@ -16,8 +16,37 @@ func joinChildren(children []p.Node, sep string) string {
 	return strings.Join(parts, sep)
 }
 
+func joinInlineChildren(children []p.Node, sep string) string {
+	parts := []string{}
+	for i := 0; i < len(children); i++ {
+		child := children[i]
+		if child.Type == "variable_reference" && child.Data.VarName == "#" && i+1 < len(children) {
+			next := children[i+1]
+			if next.Type == "string" {
+				parts = append(parts, "#\""+next.Data.Content+"\"")
+				i++
+				continue
+			}
+		}
+		parts = append(parts, stripTrailingSemicolon(Generate(child)))
+	}
+	return strings.Join(parts, sep)
+}
+
 func stripTrailingSemicolon(value string) string {
 	return strings.TrimSuffix(value, ";")
+}
+
+func indentMultiline(value string, prefix string) string {
+	lines := strings.Split(value, "\n")
+	for i, line := range lines {
+		if line == "" {
+			lines[i] = prefix
+			continue
+		}
+		lines[i] = prefix + line
+	}
+	return strings.Join(lines, "\n")
 }
 
 func Generate(node p.Node) string {
@@ -40,8 +69,8 @@ func Generate(node p.Node) string {
 	case "number":
 		output.WriteString(node.Data.Content)
 	case "expression":
-		lhs := Generate(node.Children[0])
-		rhs := Generate(node.Children[1])
+		lhs := stripTrailingSemicolon(Generate(node.Children[0]))
+		rhs := stripTrailingSemicolon(Generate(node.Children[1]))
 		output.WriteString(lhs)
 		output.WriteString(" ")
 		output.WriteString(node.Data.Operator)
@@ -65,18 +94,18 @@ func Generate(node p.Node) string {
 		}
 		output.WriteString(" = ")
 		if len(node.Children) == 1 {
-			output.WriteString(Generate(node.Children[0]))
+			output.WriteString(stripTrailingSemicolon(Generate(node.Children[0])))
 		} else if len(node.Children) > 1 {
-			output.WriteString(joinChildren(node.Children, ", "))
+			output.WriteString(joinInlineChildren(node.Children, ", "))
 		}
 		output.WriteRune(';')
 	case "array_literal":
 		output.WriteString("[")
-		output.WriteString(joinChildren(node.Children, ", "))
+		output.WriteString(joinInlineChildren(node.Children, ", "))
 		output.WriteString("]")
 	case "vector_literal":
 		output.WriteString("(")
-		output.WriteString(joinChildren(node.Children, ", "))
+		output.WriteString(joinInlineChildren(node.Children, ", "))
 		output.WriteString(")")
 	case "include_statement":
 		output.WriteString("#include ")
@@ -109,13 +138,13 @@ func Generate(node p.Node) string {
 		}
 		output.WriteString(node.Data.FunctionName)
 		output.WriteString("(")
-		output.WriteString(joinChildren(node.Children, ", "))
+		output.WriteString(joinInlineChildren(node.Children, ", "))
 		output.WriteString(");")
 	case "function_declaration":
 		output.WriteString(node.Data.FunctionName)
 		output.WriteString("(")
 		if len(node.Children) > 0 {
-			output.WriteString(Generate(node.Children[0]))
+			output.WriteString(joinInlineChildren(node.Children[0].Children, ", "))
 		}
 		output.WriteString(")\n{")
 		if len(node.Children) > 1 {
@@ -127,11 +156,15 @@ func Generate(node p.Node) string {
 		}
 		output.WriteString("\n}")
 	case "args":
-		output.WriteString(joinChildren(node.Children, ", "))
+		output.WriteString(joinInlineChildren(node.Children, ", "))
 	case "scope":
 		lines := []string{}
 		for _, child := range node.Children {
-			lines = append(lines, Indent+Generate(child))
+			line := Generate(child)
+			if child.Type == "function_call" && !strings.HasSuffix(line, ";") {
+				line += ";"
+			}
+			lines = append(lines, indentMultiline(line, Indent))
 		}
 		output.WriteString(strings.Join(lines, "\n"))
 	case "for_init", "for_condition", "for_post":
@@ -180,7 +213,7 @@ func Generate(node p.Node) string {
 		output.WriteString("\n}")
 	case "condition":
 		if len(node.Children) > 0 {
-			output.WriteString(Generate(node.Children[0]))
+			output.WriteString(stripTrailingSemicolon(Generate(node.Children[0])))
 		}
 	case "if_statement":
 		cond := ""
@@ -225,7 +258,7 @@ func Generate(node p.Node) string {
 		}
 		output.WriteString("\n}")
 	case "foreach_vars", "foreach_iter":
-		output.WriteString(joinChildren(node.Children, ", "))
+		output.WriteString(joinInlineChildren(node.Children, ", "))
 	case "foreach_loop":
 		vars := ""
 		iter := ""
@@ -250,12 +283,12 @@ func Generate(node p.Node) string {
 		output.WriteString("\n}")
 	case "switch_expr":
 		if len(node.Children) > 0 {
-			output.WriteString(Generate(node.Children[0]))
+			output.WriteString(stripTrailingSemicolon(Generate(node.Children[0])))
 		}
 	case "case_clause":
 		output.WriteString("case ")
 		if len(node.Children) > 0 {
-			output.WriteString(Generate(node.Children[0]))
+			output.WriteString(stripTrailingSemicolon(Generate(node.Children[0])))
 		}
 		output.WriteString(":")
 	case "default_clause":
@@ -263,7 +296,7 @@ func Generate(node p.Node) string {
 	case "switch_statement":
 		switchExpr := ""
 		if len(node.Children) > 0 {
-			switchExpr = Generate(node.Children[0])
+			switchExpr = stripTrailingSemicolon(Generate(node.Children[0]))
 		}
 		output.WriteString("switch(")
 		output.WriteString(switchExpr)
@@ -274,15 +307,18 @@ func Generate(node p.Node) string {
 			inCase := false
 			for _, child := range scopeNode.Children {
 				line := Generate(child)
+				if child.Type == "function_call" && !strings.HasSuffix(line, ";") {
+					line += ";"
+				}
 				if child.Type == "case_clause" || child.Type == "default_clause" {
 					inCase = true
-					lines = append(lines, Indent+line)
+					lines = append(lines, indentMultiline(line, Indent))
 					continue
 				}
 				if inCase {
-					lines = append(lines, Indent+Indent+line)
+					lines = append(lines, indentMultiline(line, Indent+Indent))
 				} else {
-					lines = append(lines, Indent+line)
+					lines = append(lines, indentMultiline(line, Indent))
 				}
 			}
 			if len(lines) > 0 {
