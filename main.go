@@ -24,7 +24,7 @@ func main() {
 	l := lexer.NewLexer(data)
 	tokens := l.GetTokens()
 
-	ast := parser.Parse(tokens)
+	ast, _ := parser.Parse(tokens)
 	if err := json.NewEncoder(os.Stdout).Encode(ast); err != nil {
 		fmt.Fprintf(os.Stderr, "Error encoding json: %v\n", err)
 		os.Exit(1)
