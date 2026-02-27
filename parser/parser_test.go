@@ -363,6 +363,33 @@ func Test_Array_Index_Compound_Assignment(t *testing.T) {
 	assert.Equal(t, targets, result)
 }
 
+func Test_Vector_Literal(t *testing.T) {
+	input := []l.Token{
+		{Type: l.SYMBOL, Content: "pos"},
+		{Type: l.ASSIGNMENT, Content: "="},
+		{Type: l.OPEN_PAREN, Content: "("},
+		{Type: l.NUMBER, Content: "0"},
+		{Type: l.COMMA, Content: ","},
+		{Type: l.NUMBER, Content: "1"},
+		{Type: l.COMMA, Content: ","},
+		{Type: l.NUMBER, Content: "2"},
+		{Type: l.CLOSE_PAREN, Content: ")"},
+		{Type: l.TERMINATOR, Content: ";"},
+	}
+	targets := []p.Node{
+		{"assignment", p.NodeData{VarName: "pos"}, []p.Node{
+			{"vector_literal", p.NodeData{}, []p.Node{
+				{"number", p.NodeData{Content: "0"}, []p.Node{}},
+				{"number", p.NodeData{Content: "1"}, []p.Node{}},
+				{"number", p.NodeData{Content: "2"}, []p.Node{}},
+			}},
+		}},
+	}
+
+	result, _ := p.Parse(input)
+	assert.Equal(t, targets, result)
+}
+
 func Test_Function_Call(t *testing.T) {
 	input := []l.Token{
 		{Type: l.SYMBOL, Content: "init"},

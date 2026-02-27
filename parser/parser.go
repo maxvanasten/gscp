@@ -41,6 +41,23 @@ func tokensToString(tokens []l.Token) string {
 	return builder.String()
 }
 
+func tokensUntilMatchingClose(tokens []l.Token, openType l.TokenType, closeType l.TokenType) []l.Token {
+	depth := 0
+	for i, token := range tokens {
+		switch token.Type {
+		case openType:
+			depth++
+		case closeType:
+			if depth == 0 {
+				return tokens[:i+1]
+			}
+			depth--
+		}
+	}
+
+	return tokens
+}
+
 func Parse(tokens []l.Token) ([]Node, []d.Diagnostic) {
 	output := []Node{}
 	diagnostics := []d.Diagnostic{}
@@ -227,7 +244,7 @@ func Parse(tokens []l.Token) ([]Node, []d.Diagnostic) {
 				break
 			}
 
-			arg_tokens := l.TokensUntilAny(tokens[index+1:], []l.TokenType{l.CLOSE_PAREN})
+			arg_tokens := tokensUntilMatchingClose(tokens[index+1:], l.OPEN_PAREN, l.CLOSE_PAREN)
 			if len(output)-1 >= 0 {
 				previous_node := output[len(output)-1]
 				if previous_node.Type == "variable_reference" && previous_node.Data.VarName == "for" {
@@ -347,6 +364,85 @@ func Parse(tokens []l.Token) ([]Node, []d.Diagnostic) {
 				}
 			}
 
+			if len(output)-1 < 0 || output[len(output)-1].Type != "variable_reference" {
+				inner_tokens := arg_tokens
+				if len(inner_tokens) > 0 && inner_tokens[len(inner_tokens)-1].Type == l.CLOSE_PAREN {
+					inner_tokens = inner_tokens[:len(inner_tokens)-1]
+				}
+				depth := 0
+				hasComma := false
+				for _, tok := range inner_tokens {
+					switch tok.Type {
+					case l.OPEN_PAREN:
+						depth++
+					case l.CLOSE_PAREN:
+						if depth > 0 {
+							depth--
+						}
+					case l.COMMA:
+						if depth == 0 {
+							hasComma = true
+							break
+						}
+					}
+					if hasComma {
+						break
+					}
+				}
+				if hasComma {
+					elem_slices := [][]l.Token{}
+					buf := []l.Token{}
+					depthParen := 0
+					depthBracket := 0
+					for _, at := range inner_tokens {
+						switch at.Type {
+						case l.OPEN_PAREN:
+							depthParen++
+							buf = append(buf, at)
+						case l.CLOSE_PAREN:
+							if depthParen > 0 {
+								depthParen--
+							}
+							buf = append(buf, at)
+						case l.OPEN_BRACKET:
+							depthBracket++
+							buf = append(buf, at)
+						case l.CLOSE_BRACKET:
+							if depthBracket > 0 {
+								depthBracket--
+							}
+							buf = append(buf, at)
+						case l.COMMA:
+							if depthParen == 0 && depthBracket == 0 {
+								elem_slices = append(elem_slices, buf)
+								buf = []l.Token{}
+							} else {
+								buf = append(buf, at)
+							}
+						default:
+							buf = append(buf, at)
+						}
+					}
+					if len(buf) > 0 {
+						elem_slices = append(elem_slices, buf)
+					}
+					vec_children := []Node{}
+					for _, elem_tokens := range elem_slices {
+						children, diags := Parse(elem_tokens)
+						vec_children = append(vec_children, children...)
+						diagnostics = append(diagnostics, diags...)
+					}
+					output = append(output, Node{"vector_literal", NodeData{}, vec_children})
+					index += len(arg_tokens)
+					break
+				}
+				group_children, diags := Parse(inner_tokens)
+				output = append(output, group_children...)
+				diagnostics = append(diagnostics, diags...)
+				index += len(arg_tokens)
+				break
+			}
+
 			arg_token_slices := [][]l.Token{}
 			// Split arg_tokens into slices at top-level commas only
 			buf := []l.Token{}
@@ -411,7 +507,7 @@ func Parse(tokens []l.Token) ([]Node, []d.Diagnostic) {
 
 			index += len(arg_tokens)
 		case l.OPEN_BRACKET:
-			bracket_tokens := l.TokensUntilAny(tokens[index+1:], []l.TokenType{l.CLOSE_BRACKET})
+			bracket_tokens := tokensUntilMatchingClose(tokens[index+1:], l.OPEN_BRACKET, l.CLOSE_BRACKET)
 			if len(output)-1 >= 0 {
 				previous_node := output[len(output)-1]
 				if previous_node.Type == "variable_reference" {
