@@ -99,8 +99,41 @@ func Parse(tokens []l.Token) ([]Node, []d.Diagnostic) {
 			}
 
 			arg_tokens := l.TokensUntilAny(tokens[index+1:], []l.TokenType{l.CLOSE_PAREN})
-			arg_children, diags := Parse(arg_tokens)
-			diagnostics = append(diagnostics, diags...)
+
+			arg_token_slices := [][]l.Token{}
+			// Split arg_tokens into slices at top-level commas only
+			buf := []l.Token{}
+			depth := 0
+			for _, at := range arg_tokens {
+				switch at.Type {
+				case l.OPEN_PAREN:
+					depth++
+					buf = append(buf, at)
+				case l.CLOSE_PAREN:
+					if depth > 0 {
+						depth--
+					}
+					buf = append(buf, at)
+				case l.COMMA:
+					if depth == 0 {
+						arg_token_slices = append(arg_token_slices, buf)
+						buf = []l.Token{}
+					} else {
+						buf = append(buf, at)
+					}
+				default:
+					buf = append(buf, at)
+				}
+			}
+			arg_token_slices = append(arg_token_slices, buf)
+
+			arg_children := []Node{}
+			diagnostics := []d.Diagnostic{}
+			for _, argument_tokens := range arg_token_slices {
+				children, diags := Parse(argument_tokens)
+				arg_children = append(arg_children, children...)
+				diagnostics = append(diagnostics, diags...)
+			}
 
 			data := NodeData{}
 			if len(output)-1 >= 0 {
