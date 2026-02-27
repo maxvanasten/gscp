@@ -483,7 +483,21 @@ func Parse(tokens []l.Token) ([]Node, []d.Diagnostic) {
 				c := 0
 				if output[len(output)-1].Type == "variable_reference" {
 					c = 1
-					data.FunctionName = output[len(output)-1].Data.VarName
+					name := output[len(output)-1].Data.VarName
+					if strings.Contains(name, "::") {
+						parts := strings.Split(name, "::")
+						if len(parts) > 1 {
+							data.Path = strings.Join(parts[:len(parts)-1], "::")
+							name = parts[len(parts)-1]
+						}
+					} else if strings.Contains(name, ".") {
+						parts := strings.Split(name, ".")
+						if len(parts) > 1 {
+							data.Method = strings.Join(parts[:len(parts)-1], ".")
+							name = parts[len(parts)-1]
+						}
+					}
+					data.FunctionName = name
 					if len(output)-2 >= 0 {
 						if output[len(output)-2].Type == "thread_keyword" {
 							c = 2

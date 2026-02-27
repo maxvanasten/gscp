@@ -420,6 +420,34 @@ func Test_Function_Call(t *testing.T) {
 	assert.Equal(t, target, result)
 }
 
+func Test_Namespace_Function_Call(t *testing.T) {
+	input := []l.Token{
+		{Type: l.SYMBOL, Content: "maps\\mp\\zombies\\_zm_powerups::specific_powerup_drop"},
+		{Type: l.OPEN_PAREN, Content: "("},
+		{Type: l.CLOSE_PAREN, Content: ")"},
+	}
+	target := []p.Node{
+		{"function_call", p.NodeData{FunctionName: "specific_powerup_drop", Path: "maps\\mp\\zombies\\_zm_powerups"}, []p.Node{}},
+	}
+
+	result, _ := p.Parse(input)
+	assert.Equal(t, target, result)
+}
+
+func Test_Method_Function_Call(t *testing.T) {
+	input := []l.Token{
+		{Type: l.SYMBOL, Content: "self.method"},
+		{Type: l.OPEN_PAREN, Content: "("},
+		{Type: l.CLOSE_PAREN, Content: ")"},
+	}
+	target := []p.Node{
+		{"function_call", p.NodeData{FunctionName: "method", Method: "self"}, []p.Node{}},
+	}
+
+	result, _ := p.Parse(input)
+	assert.Equal(t, target, result)
+}
+
 func Test_Threaded_Function_Call(t *testing.T) {
 	input := []l.Token{
 		{Type: l.SYMBOL, Content: "thread"},
