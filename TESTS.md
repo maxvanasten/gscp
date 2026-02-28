@@ -1,3 +1,6 @@
+# Latest Test Results
+
+```text
 ?   	github.com/maxvanasten/gscp	[no test files]
 === RUN   TestDiagnosticsLexerUnterminatedString
 --- PASS: TestDiagnosticsLexerUnterminatedString (0.00s)
@@ -32,7 +35,7 @@
 === RUN   TestDiagnosticsUnexpectedCloseCurly
 --- PASS: TestDiagnosticsUnexpectedCloseCurly (0.00s)
 PASS
-ok  	github.com/maxvanasten/gscp/diagnostics	(cached)
+ok  	github.com/maxvanasten/gscp/diagnostics	0.004s
 === RUN   Test_Generate_VariableReference
 --- PASS: Test_Generate_VariableReference (0.00s)
 === RUN   Test_Generate_String
@@ -122,7 +125,7 @@ ok  	github.com/maxvanasten/gscp/diagnostics	(cached)
 === RUN   Test_Generate_SwitchStatement
 --- PASS: Test_Generate_SwitchStatement (0.00s)
 PASS
-ok  	github.com/maxvanasten/gscp/generator	(cached)
+ok  	github.com/maxvanasten/gscp/generator	0.006s
 === RUN   TestLexerSymbol
 --- PASS: TestLexerSymbol (0.00s)
 === RUN   TestLexerNumber
@@ -158,7 +161,7 @@ ok  	github.com/maxvanasten/gscp/generator	(cached)
 === RUN   TestLexerLogicalOperators
 --- PASS: TestLexerLogicalOperators (0.00s)
 PASS
-ok  	github.com/maxvanasten/gscp/lexer	(cached)
+ok  	github.com/maxvanasten/gscp/lexer	0.006s
 === RUN   Test_Variable_Reference
 --- PASS: Test_Variable_Reference (0.00s)
 === RUN   Test_String
@@ -226,4 +229,5 @@ ok  	github.com/maxvanasten/gscp/lexer	(cached)
 === RUN   Test_Function_Call_Complex_Args
 --- PASS: Test_Function_Call_Complex_Args (0.00s)
 PASS
-ok  	github.com/maxvanasten/gscp/parser	(cached)
+ok  	github.com/maxvanasten/gscp/parser	0.008s
+```
