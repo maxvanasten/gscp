@@ -29,6 +29,10 @@ cd ./gscp/ && go build
 
 gscp outputs a JSON object on STDOUT containing both the AST and diagnostics. You can format the JSON nicely with `jq` and `bat`, for example: `./gscp -p input.gsc | jq | bat -l json` or `./gscp -p input.gsc | jq .ast`
 
+## Documentation
+
+For a detailed walk-through of how gscp works internally, see [`docs/gscp-internals.md`](./docs/gscp-internals.md).
+
 ## Application
 
 gscp can be the backbone for future projects like a gsc language server or doing complex code analysis on the original codebase.
