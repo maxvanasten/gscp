@@ -27,6 +27,14 @@ func assertHasDiagnostic(t *testing.T, diags []d.Diagnostic, expected d.Diagnost
 	assert.Failf(t, "expected diagnostic", "expected %+v, got %+v", expected, diags)
 }
 
+func tokenContents(tokens []l.Token) []string {
+	contents := []string{}
+	for _, tok := range tokens {
+		contents = append(contents, tok.Content)
+	}
+	return contents
+}
+
 func TestDiagnosticsLexerUnterminatedString(t *testing.T) {
 	input := []byte("\"hello")
 	lexer := l.NewLexer(input)
@@ -43,6 +51,52 @@ func TestDiagnosticsLexerInvalidToken(t *testing.T) {
 
 	expected := d.New("invalid token", 1, 1, 1, 2, "error")
 	assertHasDiagnostic(t, actual, expected)
+}
+
+func TestDiagnosticsLexerUnterminatedBlockComment(t *testing.T) {
+	input := []byte("/# unterminated")
+	lexer := l.NewLexer(input)
+	actual := lexer.GetDiagnostics()
+
+	expected := d.New("unterminated block comment", 1, 1, 1, 1, "error")
+	assertHasDiagnostic(t, actual, expected)
+}
+
+func TestDiagnosticsLexerSkipsLineComment(t *testing.T) {
+	input := []byte("a = 1; // comment\nb = 2;")
+	lexer := l.NewLexer(input)
+	assert.Len(t, lexer.GetDiagnostics(), 0)
+	assert.Contains(t, tokenContents(lexer.GetTokens()), "a")
+	assert.Contains(t, tokenContents(lexer.GetTokens()), "b")
+}
+
+func TestDiagnosticsLexerSkipsBlockComment(t *testing.T) {
+	input := []byte("/# block\ncomment #/\na = 1;")
+	lexer := l.NewLexer(input)
+	assert.Len(t, lexer.GetDiagnostics(), 0)
+	assert.Contains(t, tokenContents(lexer.GetTokens()), "a")
+}
+
+func TestDiagnosticsLexerSymbolStarts(t *testing.T) {
+	input := []byte("::init_sidequest points[i].target _private")
+	lexer := l.NewLexer(input)
+	assert.Len(t, lexer.GetDiagnostics(), 0)
+	assert.Contains(t, tokenContents(lexer.GetTokens()), "::init_sidequest")
+	assert.Contains(t, tokenContents(lexer.GetTokens()), "points")
+	assert.Contains(t, tokenContents(lexer.GetTokens()), ".target")
+	assert.Contains(t, tokenContents(lexer.GetTokens()), "_private")
+}
+
+func TestDiagnosticsWaitFunctionCall(t *testing.T) {
+	lexer := l.NewLexer([]byte("wait( 0.05 );"))
+	_, diags := p.Parse(lexer.GetTokens())
+	assert.Len(t, diags, 0)
+}
+
+func TestDiagnosticsIncrementOperator(t *testing.T) {
+	lexer := l.NewLexer([]byte("x++;"))
+	_, diags := p.Parse(lexer.GetTokens())
+	assert.Len(t, diags, 0)
 }
 
 func TestDiagnosticsMissingIncludePath(t *testing.T) {

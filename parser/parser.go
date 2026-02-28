@@ -103,12 +103,19 @@ func Parse(tokens []l.Token) ([]Node, []d.Diagnostic) {
 					diagnostics = append(diagnostics, diagnosticAtIndex("missing include path", tokens, index, "error"))
 				}
 			case "wait":
-				if index+1 < len(tokens) && (tokens[index+1].Type == l.NUMBER || tokens[index+1].Type == l.SYMBOL) {
-					output = append(output, Node{"wait_statement", NodeData{Delay: tokens[index+1].Content}, []Node{}})
-					index++
-				} else {
-					diagnostics = append(diagnostics, diagnosticAtIndex("missing wait duration", tokens, index, "error"))
+				if index+1 < len(tokens) {
+					next := tokens[index+1]
+					if next.Type == l.OPEN_PAREN {
+						output = append(output, Node{"variable_reference", NodeData{VarName: tokens[index].Content}, []Node{}})
+						break
+					}
+					if next.Type == l.NUMBER || next.Type == l.SYMBOL {
+						output = append(output, Node{"wait_statement", NodeData{Delay: next.Content}, []Node{}})
+						index++
+						break
+					}
 				}
+				diagnostics = append(diagnostics, diagnosticAtIndex("missing wait duration", tokens, index, "error"))
 			case "thread":
 				output = append(output, Node{"thread_keyword", NodeData{}, []Node{}})
 			case "true", "false":
@@ -186,6 +193,24 @@ func Parse(tokens []l.Token) ([]Node, []d.Diagnostic) {
 						diagnostics = append(diagnostics, diags...)
 					}
 					diagnostics = append(diagnostics, diagnosticAtIndex("missing unary operand", tokens, index, "error"))
+				}
+			}
+			if tokens[index].Content == "++" || tokens[index].Content == "--" {
+				if len(output) > 0 {
+					previous_node := output[len(output)-1]
+					if previous_node.Type == "variable_reference" {
+						output = output[:len(output)-1]
+						operator := "+"
+						if tokens[index].Content == "--" {
+							operator = "-"
+						}
+						lhs := Node{"lhs", NodeData{}, []Node{previous_node}}
+						rhs := Node{"rhs", NodeData{}, []Node{{"number", NodeData{Content: "1"}, []Node{}}}}
+						expr := Node{"expression", NodeData{Operator: operator}, []Node{lhs, rhs}}
+						assignment_data := NodeData{VarName: previous_node.Data.VarName, Index: previous_node.Data.Index}
+						output = append(output, Node{"assignment", assignment_data, []Node{expr}})
+						break
+					}
 				}
 			}
 			if index <= 0 {

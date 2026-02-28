@@ -94,6 +94,28 @@ type Lexer struct {
 	diagnostics []d.Diagnostic
 }
 
+func isSymbolStart(buffer []byte) bool {
+	if len(buffer) == 0 {
+		return false
+	}
+	first := buffer[0]
+	if unicode.IsLetter(rune(first)) || first == '#' || first == '_' {
+		return true
+	}
+	if first == '.' {
+		if len(buffer) > 1 {
+			second := buffer[1]
+			return unicode.IsLetter(rune(second)) || second == '_' || second == '#'
+		}
+		return false
+	}
+	if first == ':' && len(buffer) > 2 && buffer[1] == ':' {
+		third := buffer[2]
+		return unicode.IsLetter(rune(third)) || third == '_'
+	}
+	return false
+}
+
 func TokensFromTypes(types []TokenType) []Token {
 	output := []Token{}
 	for _, t := range types {
@@ -168,7 +190,7 @@ func (l *Lexer) HandleBuffer() {
 			l.tokens = append(l.tokens, Token{Type: NUMBER, Content: string(l.buffer), Line: startLine, Col: startCol, EndLine: endLine, EndCol: endCol})
 		} else {
 			// Check if symbol is valid
-			if unicode.IsLetter(rune(l.buffer[0])) || l.buffer[0] == '#' {
+			if isSymbolStart(l.buffer) {
 				l.tokens = append(l.tokens, Token{Type: SYMBOL, Content: string(l.buffer), Line: startLine, Col: startCol, EndLine: endLine, EndCol: endCol})
 			} else {
 				l.diagnostics = append(l.diagnostics, d.New("invalid token", startLine, startCol, endLine, endCol, "error"))
@@ -196,6 +218,35 @@ func (l *Lexer) HandleCharacter(c byte) int {
 	startCol := l.col
 	switch c {
 	case '+', '-', '*', '/':
+		if c == '/' && l.index+1 < len(l.input) {
+			next := l.input[l.index+1]
+			if next == '/' {
+				l.HandleBuffer()
+				commentEnd := bytes.IndexByte(l.input[l.index+2:], '\n')
+				if commentEnd < 0 {
+					return len(l.input) - l.index
+				}
+				return commentEnd + 2
+			}
+			if next == '#' {
+				l.HandleBuffer()
+				blockEnd := bytes.Index(l.input[l.index+2:], []byte("#/"))
+				if blockEnd < 0 {
+					startLine := l.line
+					startCol := l.col
+					endLine := l.line
+					endCol := l.col
+					l.diagnostics = append(l.diagnostics, d.New("unterminated block comment", startLine, startCol, endLine, endCol, "error"))
+					return len(l.input) - l.index
+				}
+				return blockEnd + 4
+			}
+		}
+		if (c == '+' || c == '-') && l.index+1 < len(l.input) && l.input[l.index+1] == c {
+			l.HandleBuffer()
+			l.tokens = append(l.tokens, Token{Type: OPERATOR, Content: string([]byte{c, c}), Line: startLine, Col: startCol, EndLine: startLine, EndCol: startCol + 1})
+			return 2
+		}
 		if l.index+1 < len(l.input) && l.input[l.index+1] == '=' {
 			l.HandleBuffer()
 			l.tokens = append(l.tokens, Token{Type: ASSIGNMENT, Content: string([]byte{c, '='}), Line: startLine, Col: startCol, EndLine: startLine, EndCol: startCol + 1})
