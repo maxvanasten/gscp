@@ -41,7 +41,7 @@ func tokensToString(tokens []l.Token) string {
 	return builder.String()
 }
 
-func tokensUntilMatchingClose(tokens []l.Token, openType l.TokenType, closeType l.TokenType) []l.Token {
+func tokensUntilMatchingClose(tokens []l.Token, openType l.TokenType, closeType l.TokenType) ([]l.Token, bool) {
 	depth := 0
 	for i, token := range tokens {
 		switch token.Type {
@@ -49,13 +49,28 @@ func tokensUntilMatchingClose(tokens []l.Token, openType l.TokenType, closeType 
 			depth++
 		case closeType:
 			if depth == 0 {
-				return tokens[:i+1]
+				return tokens[:i+1], true
 			}
 			depth--
 		}
 	}
 
-	return tokens
+	return tokens, false
+}
+
+func diagnosticAtToken(message string, token l.Token, severity string) d.Diagnostic {
+	line := token.Line
+	col := token.Col
+	endLine := token.EndLine
+	endCol := token.EndCol
+	return d.New(message, line, col, endLine, endCol, severity)
+}
+
+func diagnosticAtIndex(message string, tokens []l.Token, index int, severity string) d.Diagnostic {
+	if index < 0 || index >= len(tokens) {
+		return d.New(message, 0, 0, 0, 0, severity)
+	}
+	return diagnosticAtToken(message, tokens[index], severity)
 }
 
 func Parse(tokens []l.Token) ([]Node, []d.Diagnostic) {
@@ -71,14 +86,18 @@ func Parse(tokens []l.Token) ([]Node, []d.Diagnostic) {
 			normalized := strings.TrimSuffix(tokens[index].Content, ":")
 			switch normalized {
 			case "#include":
-				if index+1 < len(tokens) {
+				if index+1 < len(tokens) && tokens[index+1].Type == l.SYMBOL {
 					output = append(output, Node{"include_statement", NodeData{Path: tokens[index+1].Content}, []Node{}})
 					index++
+				} else {
+					diagnostics = append(diagnostics, diagnosticAtIndex("missing include path", tokens, index, "error"))
 				}
 			case "wait":
 				if index+1 < len(tokens) && (tokens[index+1].Type == l.NUMBER || tokens[index+1].Type == l.SYMBOL) {
 					output = append(output, Node{"wait_statement", NodeData{Delay: tokens[index+1].Content}, []Node{}})
 					index++
+				} else {
+					diagnostics = append(diagnostics, diagnosticAtIndex("missing wait duration", tokens, index, "error"))
 				}
 			case "thread":
 				output = append(output, Node{"thread_keyword", NodeData{}, []Node{}})
@@ -156,12 +175,15 @@ func Parse(tokens []l.Token) ([]Node, []d.Diagnostic) {
 						}
 						diagnostics = append(diagnostics, diags...)
 					}
+					diagnostics = append(diagnostics, diagnosticAtIndex("missing unary operand", tokens, index, "error"))
 				}
 			}
 			if index <= 0 {
+				diagnostics = append(diagnostics, diagnosticAtIndex("operator missing left-hand operand", tokens, index, "error"))
 				break
 			}
 			if len(output) == 0 {
+				diagnostics = append(diagnostics, diagnosticAtIndex("operator missing left-hand operand", tokens, index, "error"))
 				break
 			}
 			// Check if previous node is either a string, variable_reference, number, function_call or another expression
@@ -205,6 +227,9 @@ func Parse(tokens []l.Token) ([]Node, []d.Diagnostic) {
 				// Parse those tokens into RHS
 				rhs_children, diags := Parse(expr_tokens)
 				rhs := Node{"rhs", NodeData{}, rhs_children}
+				if len(rhs_children) == 0 {
+					diagnostics = append(diagnostics, diagnosticAtIndex("operator missing right-hand operand", tokens, index, "error"))
+				}
 				// Add Expression node to output
 				output = append(output, Node{"expression", NodeData{Operator: tokens[index].Content}, []Node{lhs, rhs}})
 				diagnostics = append(diagnostics, diags...)
@@ -214,11 +239,17 @@ func Parse(tokens []l.Token) ([]Node, []d.Diagnostic) {
 			}
 		case l.ASSIGNMENT:
 			if index <= 0 {
+				diagnostics = append(diagnostics, diagnosticAtIndex("assignment missing left-hand side", tokens, index, "error"))
+				break
+			}
+			if len(output) == 0 {
+				diagnostics = append(diagnostics, diagnosticAtIndex("assignment missing left-hand side", tokens, index, "error"))
 				break
 			}
 			// Check if previous node is a variable_reference
 			previous_node := output[len(output)-1]
 			if previous_node.Type != "variable_reference" {
+				diagnostics = append(diagnostics, diagnosticAtIndex("assignment target must be a variable", tokens, index, "error"))
 				output = append(output, Node{"assignment", NodeData{Content: tokens[index].Content}, []Node{}})
 				break
 			}
@@ -240,7 +271,10 @@ func Parse(tokens []l.Token) ([]Node, []d.Diagnostic) {
 			diagnostics = append(diagnostics, diags...)
 			index += len(ass_tokens)
 		case l.OPEN_PAREN:
-			arg_tokens := tokensUntilMatchingClose(tokens[index+1:], l.OPEN_PAREN, l.CLOSE_PAREN)
+			arg_tokens, foundClose := tokensUntilMatchingClose(tokens[index+1:], l.OPEN_PAREN, l.CLOSE_PAREN)
+			if !foundClose {
+				diagnostics = append(diagnostics, diagnosticAtIndex("missing closing )", tokens, index, "error"))
+			}
 			if len(output)-1 >= 0 {
 				previous_node := output[len(output)-1]
 				if previous_node.Type == "variable_reference" && previous_node.Data.VarName == "for" {
@@ -467,11 +501,11 @@ func Parse(tokens []l.Token) ([]Node, []d.Diagnostic) {
 			arg_token_slices = append(arg_token_slices, buf)
 
 			arg_children := []Node{}
-			diagnostics := []d.Diagnostic{}
+			argDiagnostics := []d.Diagnostic{}
 			for _, argument_tokens := range arg_token_slices {
 				children, diags := Parse(argument_tokens)
 				arg_children = append(arg_children, children...)
-				diagnostics = append(diagnostics, diags...)
+				argDiagnostics = append(argDiagnostics, diags...)
 			}
 
 			data := NodeData{}
@@ -514,10 +548,14 @@ func Parse(tokens []l.Token) ([]Node, []d.Diagnostic) {
 				output = output[:len(output)-c]
 				output = append(output, Node{"function_call", data, arg_children})
 			}
+			diagnostics = append(diagnostics, argDiagnostics...)
 
 			index += len(arg_tokens)
 		case l.OPEN_BRACKET:
-			bracket_tokens := tokensUntilMatchingClose(tokens[index+1:], l.OPEN_BRACKET, l.CLOSE_BRACKET)
+			bracket_tokens, foundClose := tokensUntilMatchingClose(tokens[index+1:], l.OPEN_BRACKET, l.CLOSE_BRACKET)
+			if !foundClose {
+				diagnostics = append(diagnostics, diagnosticAtIndex("missing closing ]", tokens, index, "error"))
+			}
 			if len(output)-1 >= 0 {
 				previous_node := output[len(output)-1]
 				if previous_node.Type == "variable_reference" {
@@ -585,6 +623,7 @@ func Parse(tokens []l.Token) ([]Node, []d.Diagnostic) {
 			index += len(bracket_tokens)
 		case l.OPEN_CURLY:
 			if len(output)-1 < 0 {
+				diagnostics = append(diagnostics, diagnosticAtIndex("unexpected {", tokens, index, "error"))
 				break
 			}
 			previous_node := output[len(output)-1]
@@ -592,7 +631,10 @@ func Parse(tokens []l.Token) ([]Node, []d.Diagnostic) {
 			case "function_call":
 				output = output[:len(output)-1]
 				// Get all tokens from OPEN_CURLY until matching CLOSE_CURLY
-				scope_tokens := tokensUntilMatchingClose(tokens[index+1:], l.OPEN_CURLY, l.CLOSE_CURLY)
+				scope_tokens, foundClose := tokensUntilMatchingClose(tokens[index+1:], l.OPEN_CURLY, l.CLOSE_CURLY)
+				if !foundClose {
+					diagnostics = append(diagnostics, diagnosticAtIndex("missing closing }", tokens, index, "error"))
+				}
 				// Parse those tokens into scope node
 				arg_node := Node{"args", NodeData{}, previous_node.Children}
 				scope_children, diags := Parse(scope_tokens)
@@ -603,7 +645,10 @@ func Parse(tokens []l.Token) ([]Node, []d.Diagnostic) {
 				index += len(scope_tokens)
 			case "for_header":
 				output = output[:len(output)-1]
-				scope_tokens := tokensUntilMatchingClose(tokens[index+1:], l.OPEN_CURLY, l.CLOSE_CURLY)
+				scope_tokens, foundClose := tokensUntilMatchingClose(tokens[index+1:], l.OPEN_CURLY, l.CLOSE_CURLY)
+				if !foundClose {
+					diagnostics = append(diagnostics, diagnosticAtIndex("missing closing }", tokens, index, "error"))
+				}
 				scope_children, diags := Parse(scope_tokens)
 				scope_node := Node{"scope", NodeData{}, scope_children}
 				for_children := append(previous_node.Children, scope_node)
@@ -612,7 +657,10 @@ func Parse(tokens []l.Token) ([]Node, []d.Diagnostic) {
 				index += len(scope_tokens)
 			case "if_header":
 				output = output[:len(output)-1]
-				scope_tokens := tokensUntilMatchingClose(tokens[index+1:], l.OPEN_CURLY, l.CLOSE_CURLY)
+				scope_tokens, foundClose := tokensUntilMatchingClose(tokens[index+1:], l.OPEN_CURLY, l.CLOSE_CURLY)
+				if !foundClose {
+					diagnostics = append(diagnostics, diagnosticAtIndex("missing closing }", tokens, index, "error"))
+				}
 				scope_children, diags := Parse(scope_tokens)
 				scope_node := Node{"scope", NodeData{}, scope_children}
 				if_children := append(previous_node.Children, scope_node)
@@ -621,7 +669,10 @@ func Parse(tokens []l.Token) ([]Node, []d.Diagnostic) {
 				index += len(scope_tokens)
 			case "while_header":
 				output = output[:len(output)-1]
-				scope_tokens := tokensUntilMatchingClose(tokens[index+1:], l.OPEN_CURLY, l.CLOSE_CURLY)
+				scope_tokens, foundClose := tokensUntilMatchingClose(tokens[index+1:], l.OPEN_CURLY, l.CLOSE_CURLY)
+				if !foundClose {
+					diagnostics = append(diagnostics, diagnosticAtIndex("missing closing }", tokens, index, "error"))
+				}
 				scope_children, diags := Parse(scope_tokens)
 				scope_node := Node{"scope", NodeData{}, scope_children}
 				while_children := append(previous_node.Children, scope_node)
@@ -630,7 +681,10 @@ func Parse(tokens []l.Token) ([]Node, []d.Diagnostic) {
 				index += len(scope_tokens)
 			case "foreach_header":
 				output = output[:len(output)-1]
-				scope_tokens := tokensUntilMatchingClose(tokens[index+1:], l.OPEN_CURLY, l.CLOSE_CURLY)
+				scope_tokens, foundClose := tokensUntilMatchingClose(tokens[index+1:], l.OPEN_CURLY, l.CLOSE_CURLY)
+				if !foundClose {
+					diagnostics = append(diagnostics, diagnosticAtIndex("missing closing }", tokens, index, "error"))
+				}
 				scope_children, diags := Parse(scope_tokens)
 				scope_node := Node{"scope", NodeData{}, scope_children}
 				foreach_children := append(previous_node.Children, scope_node)
@@ -639,7 +693,10 @@ func Parse(tokens []l.Token) ([]Node, []d.Diagnostic) {
 				index += len(scope_tokens)
 			case "switch_header":
 				output = output[:len(output)-1]
-				scope_tokens := tokensUntilMatchingClose(tokens[index+1:], l.OPEN_CURLY, l.CLOSE_CURLY)
+				scope_tokens, foundClose := tokensUntilMatchingClose(tokens[index+1:], l.OPEN_CURLY, l.CLOSE_CURLY)
+				if !foundClose {
+					diagnostics = append(diagnostics, diagnosticAtIndex("missing closing }", tokens, index, "error"))
+				}
 				scope_children, diags := Parse(scope_tokens)
 				scope_node := Node{"scope", NodeData{}, scope_children}
 				switch_children := append(previous_node.Children, scope_node)
@@ -648,16 +705,26 @@ func Parse(tokens []l.Token) ([]Node, []d.Diagnostic) {
 				index += len(scope_tokens)
 			case "else_header":
 				output = output[:len(output)-1]
-				scope_tokens := tokensUntilMatchingClose(tokens[index+1:], l.OPEN_CURLY, l.CLOSE_CURLY)
+				scope_tokens, foundClose := tokensUntilMatchingClose(tokens[index+1:], l.OPEN_CURLY, l.CLOSE_CURLY)
+				if !foundClose {
+					diagnostics = append(diagnostics, diagnosticAtIndex("missing closing }", tokens, index, "error"))
+				}
 				scope_children, diags := Parse(scope_tokens)
 				scope_node := Node{"scope", NodeData{}, scope_children}
 				output = append(output, Node{"else_clause", NodeData{}, []Node{scope_node}})
 				diagnostics = append(diagnostics, diags...)
 				index += len(scope_tokens)
 			default:
+				diagnostics = append(diagnostics, diagnosticAtIndex("unexpected {", tokens, index, "error"))
 				output = append(output, Node{"open_curly", NodeData{}, []Node{}})
 				break
 			}
+		case l.CLOSE_PAREN:
+			diagnostics = append(diagnostics, diagnosticAtIndex("unexpected )", tokens, index, "error"))
+		case l.CLOSE_BRACKET:
+			diagnostics = append(diagnostics, diagnosticAtIndex("unexpected ]", tokens, index, "error"))
+		case l.CLOSE_CURLY:
+			diagnostics = append(diagnostics, diagnosticAtIndex("unexpected }", tokens, index, "error"))
 		default:
 		}
 		index++

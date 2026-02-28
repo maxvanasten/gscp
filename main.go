@@ -7,10 +7,16 @@ import (
 	"os"
 	"strings"
 
+	"github.com/maxvanasten/gscp/diagnostics"
 	"github.com/maxvanasten/gscp/generator"
 	"github.com/maxvanasten/gscp/lexer"
 	"github.com/maxvanasten/gscp/parser"
 )
+
+type ParseOutput struct {
+	AST         []parser.Node            `json:"ast"`
+	Diagnostics []diagnostics.Diagnostic `json:"diagnostics"`
+}
 
 func main() {
 	parsePath := flag.String("p", "", "Parse GSC file into AST")
@@ -30,6 +36,7 @@ func main() {
 
 		l := lexer.NewLexer(data)
 		tokens := l.GetTokens()
+		lexerDiagnostics := l.GetDiagnostics()
 		encoded, err := json.Marshal(tokens)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error encoding tokens: %v\n", err)
@@ -41,8 +48,12 @@ func main() {
 			os.Exit(1)
 		}
 
-		ast, _ := parser.Parse(jsonTokens)
-		if err := json.NewEncoder(os.Stdout).Encode(ast); err != nil {
+		ast, parseDiagnostics := parser.Parse(jsonTokens)
+		output := ParseOutput{
+			AST:         ast,
+			Diagnostics: append(lexerDiagnostics, parseDiagnostics...),
+		}
+		if err := json.NewEncoder(os.Stdout).Encode(output); err != nil {
 			fmt.Fprintf(os.Stderr, "Error encoding json: %v\n", err)
 			os.Exit(1)
 		}
