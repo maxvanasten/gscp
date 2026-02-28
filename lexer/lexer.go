@@ -20,6 +20,7 @@ const (
 
 	TERMINATOR
 	COMMA
+	COLON
 	NEWLINE
 
 	OPEN_PAREN
@@ -47,6 +48,8 @@ func (t TokenType) ToString() string {
 		return "terminator"
 	case COMMA:
 		return "comma"
+	case COLON:
+		return "colon"
 	case NEWLINE:
 		return "newline"
 	case OPEN_PAREN:
@@ -119,6 +122,8 @@ func TokenTypeFromChar(char byte) TokenType {
 		return ASSIGNMENT
 	case ';':
 		return TERMINATOR
+	case ':':
+		return COLON
 	case '\n':
 		return NEWLINE
 	case ',':
@@ -239,6 +244,18 @@ func (l *Lexer) HandleCharacter(c byte) int {
 		l.HandleBuffer()
 		token_type := TokenTypeFromChar(c)
 		l.tokens = append(l.tokens, Token{Type: token_type, Content: strings.TrimSpace(string(c)), Line: startLine, Col: startCol, EndLine: startLine, EndCol: startCol})
+		return 1
+	case ':':
+		if l.index+1 < len(l.input) && l.input[l.index+1] == ':' {
+			if len(l.buffer) == 0 {
+				l.bufferLine = l.line
+				l.bufferCol = l.col
+			}
+			l.buffer = append(l.buffer, ':', ':')
+			return 2
+		}
+		l.HandleBuffer()
+		l.tokens = append(l.tokens, Token{Type: COLON, Content: ":", Line: startLine, Col: startCol, EndLine: startLine, EndCol: startCol})
 		return 1
 	case ' ', '\t':
 		l.HandleBuffer()

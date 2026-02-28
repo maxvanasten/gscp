@@ -58,6 +58,16 @@ func tokensUntilMatchingClose(tokens []l.Token, openType l.TokenType, closeType 
 	return tokens, false
 }
 
+func trimTrailingToken(tokens []l.Token, tokenType l.TokenType) []l.Token {
+	if len(tokens) == 0 {
+		return tokens
+	}
+	if tokens[len(tokens)-1].Type == tokenType {
+		return tokens[:len(tokens)-1]
+	}
+	return tokens
+}
+
 func diagnosticAtToken(message string, token l.Token, severity string) d.Diagnostic {
 	line := token.Line
 	col := token.Col
@@ -112,7 +122,7 @@ func Parse(tokens []l.Token) ([]Node, []d.Diagnostic) {
 				diagnostics = append(diagnostics, diags...)
 				index += len(ret_tokens)
 			case "case":
-				case_tokens := l.TokensUntilAny(tokens[index+1:], []l.TokenType{l.NEWLINE, l.TERMINATOR})
+				case_tokens := l.TokensUntilAny(tokens[index+1:], []l.TokenType{l.NEWLINE, l.TERMINATOR, l.COLON})
 				case_children, diags := Parse(case_tokens)
 				output = append(output, Node{"case_clause", NodeData{}, case_children})
 				diagnostics = append(diagnostics, diags...)
@@ -275,13 +285,11 @@ func Parse(tokens []l.Token) ([]Node, []d.Diagnostic) {
 			if !foundClose {
 				diagnostics = append(diagnostics, diagnosticAtIndex("missing closing )", tokens, index, "error"))
 			}
+			trimmedArgTokens := trimTrailingToken(arg_tokens, l.CLOSE_PAREN)
 			if len(output)-1 >= 0 {
 				previous_node := output[len(output)-1]
 				if previous_node.Type == "variable_reference" && previous_node.Data.VarName == "for" {
-					header_tokens := arg_tokens
-					if len(header_tokens) > 0 && header_tokens[len(header_tokens)-1].Type == l.CLOSE_PAREN {
-						header_tokens = header_tokens[:len(header_tokens)-1]
-					}
+					header_tokens := trimmedArgTokens
 
 					segments := [][]l.Token{}
 					buf := []l.Token{}
@@ -331,10 +339,7 @@ func Parse(tokens []l.Token) ([]Node, []d.Diagnostic) {
 					break
 				}
 				if previous_node.Type == "variable_reference" && (previous_node.Data.VarName == "if" || previous_node.Data.VarName == "while" || previous_node.Data.VarName == "foreach" || previous_node.Data.VarName == "switch") {
-					header_tokens := arg_tokens
-					if len(header_tokens) > 0 && header_tokens[len(header_tokens)-1].Type == l.CLOSE_PAREN {
-						header_tokens = header_tokens[:len(header_tokens)-1]
-					}
+					header_tokens := trimmedArgTokens
 					output = output[:len(output)-1]
 					switch previous_node.Data.VarName {
 					case "if":
@@ -395,10 +400,7 @@ func Parse(tokens []l.Token) ([]Node, []d.Diagnostic) {
 			}
 
 			if len(output)-1 < 0 || output[len(output)-1].Type != "variable_reference" {
-				inner_tokens := arg_tokens
-				if len(inner_tokens) > 0 && inner_tokens[len(inner_tokens)-1].Type == l.CLOSE_PAREN {
-					inner_tokens = inner_tokens[:len(inner_tokens)-1]
-				}
+				inner_tokens := trimmedArgTokens
 				depth := 0
 				hasComma := false
 				for _, tok := range inner_tokens {
@@ -477,7 +479,7 @@ func Parse(tokens []l.Token) ([]Node, []d.Diagnostic) {
 			// Split arg_tokens into slices at top-level commas only
 			buf := []l.Token{}
 			depth := 0
-			for _, at := range arg_tokens {
+			for _, at := range trimmedArgTokens {
 				switch at.Type {
 				case l.OPEN_PAREN:
 					depth++
@@ -631,10 +633,11 @@ func Parse(tokens []l.Token) ([]Node, []d.Diagnostic) {
 			case "function_call":
 				output = output[:len(output)-1]
 				// Get all tokens from OPEN_CURLY until matching CLOSE_CURLY
-				scope_tokens, foundClose := tokensUntilMatchingClose(tokens[index+1:], l.OPEN_CURLY, l.CLOSE_CURLY)
+				rawScopeTokens, foundClose := tokensUntilMatchingClose(tokens[index+1:], l.OPEN_CURLY, l.CLOSE_CURLY)
 				if !foundClose {
 					diagnostics = append(diagnostics, diagnosticAtIndex("missing closing }", tokens, index, "error"))
 				}
+				scope_tokens := trimTrailingToken(rawScopeTokens, l.CLOSE_CURLY)
 				// Parse those tokens into scope node
 				arg_node := Node{"args", NodeData{}, previous_node.Children}
 				scope_children, diags := Parse(scope_tokens)
@@ -642,78 +645,84 @@ func Parse(tokens []l.Token) ([]Node, []d.Diagnostic) {
 				// Add function declararation node
 				output = append(output, Node{"function_declaration", NodeData{FunctionName: previous_node.Data.FunctionName}, []Node{arg_node, scope_node}})
 				diagnostics = append(diagnostics, diags...)
-				index += len(scope_tokens)
+				index += len(rawScopeTokens)
 			case "for_header":
 				output = output[:len(output)-1]
-				scope_tokens, foundClose := tokensUntilMatchingClose(tokens[index+1:], l.OPEN_CURLY, l.CLOSE_CURLY)
+				rawScopeTokens, foundClose := tokensUntilMatchingClose(tokens[index+1:], l.OPEN_CURLY, l.CLOSE_CURLY)
 				if !foundClose {
 					diagnostics = append(diagnostics, diagnosticAtIndex("missing closing }", tokens, index, "error"))
 				}
+				scope_tokens := trimTrailingToken(rawScopeTokens, l.CLOSE_CURLY)
 				scope_children, diags := Parse(scope_tokens)
 				scope_node := Node{"scope", NodeData{}, scope_children}
 				for_children := append(previous_node.Children, scope_node)
 				output = append(output, Node{"for_loop", NodeData{}, for_children})
 				diagnostics = append(diagnostics, diags...)
-				index += len(scope_tokens)
+				index += len(rawScopeTokens)
 			case "if_header":
 				output = output[:len(output)-1]
-				scope_tokens, foundClose := tokensUntilMatchingClose(tokens[index+1:], l.OPEN_CURLY, l.CLOSE_CURLY)
+				rawScopeTokens, foundClose := tokensUntilMatchingClose(tokens[index+1:], l.OPEN_CURLY, l.CLOSE_CURLY)
 				if !foundClose {
 					diagnostics = append(diagnostics, diagnosticAtIndex("missing closing }", tokens, index, "error"))
 				}
+				scope_tokens := trimTrailingToken(rawScopeTokens, l.CLOSE_CURLY)
 				scope_children, diags := Parse(scope_tokens)
 				scope_node := Node{"scope", NodeData{}, scope_children}
 				if_children := append(previous_node.Children, scope_node)
 				output = append(output, Node{"if_statement", NodeData{}, if_children})
 				diagnostics = append(diagnostics, diags...)
-				index += len(scope_tokens)
+				index += len(rawScopeTokens)
 			case "while_header":
 				output = output[:len(output)-1]
-				scope_tokens, foundClose := tokensUntilMatchingClose(tokens[index+1:], l.OPEN_CURLY, l.CLOSE_CURLY)
+				rawScopeTokens, foundClose := tokensUntilMatchingClose(tokens[index+1:], l.OPEN_CURLY, l.CLOSE_CURLY)
 				if !foundClose {
 					diagnostics = append(diagnostics, diagnosticAtIndex("missing closing }", tokens, index, "error"))
 				}
+				scope_tokens := trimTrailingToken(rawScopeTokens, l.CLOSE_CURLY)
 				scope_children, diags := Parse(scope_tokens)
 				scope_node := Node{"scope", NodeData{}, scope_children}
 				while_children := append(previous_node.Children, scope_node)
 				output = append(output, Node{"while_loop", NodeData{}, while_children})
 				diagnostics = append(diagnostics, diags...)
-				index += len(scope_tokens)
+				index += len(rawScopeTokens)
 			case "foreach_header":
 				output = output[:len(output)-1]
-				scope_tokens, foundClose := tokensUntilMatchingClose(tokens[index+1:], l.OPEN_CURLY, l.CLOSE_CURLY)
+				rawScopeTokens, foundClose := tokensUntilMatchingClose(tokens[index+1:], l.OPEN_CURLY, l.CLOSE_CURLY)
 				if !foundClose {
 					diagnostics = append(diagnostics, diagnosticAtIndex("missing closing }", tokens, index, "error"))
 				}
+				scope_tokens := trimTrailingToken(rawScopeTokens, l.CLOSE_CURLY)
 				scope_children, diags := Parse(scope_tokens)
 				scope_node := Node{"scope", NodeData{}, scope_children}
 				foreach_children := append(previous_node.Children, scope_node)
 				output = append(output, Node{"foreach_loop", NodeData{}, foreach_children})
 				diagnostics = append(diagnostics, diags...)
-				index += len(scope_tokens)
+				index += len(rawScopeTokens)
 			case "switch_header":
 				output = output[:len(output)-1]
-				scope_tokens, foundClose := tokensUntilMatchingClose(tokens[index+1:], l.OPEN_CURLY, l.CLOSE_CURLY)
+				rawScopeTokens, foundClose := tokensUntilMatchingClose(tokens[index+1:], l.OPEN_CURLY, l.CLOSE_CURLY)
 				if !foundClose {
 					diagnostics = append(diagnostics, diagnosticAtIndex("missing closing }", tokens, index, "error"))
 				}
+				scope_tokens := trimTrailingToken(rawScopeTokens, l.CLOSE_CURLY)
 				scope_children, diags := Parse(scope_tokens)
 				scope_node := Node{"scope", NodeData{}, scope_children}
 				switch_children := append(previous_node.Children, scope_node)
 				output = append(output, Node{"switch_statement", NodeData{}, switch_children})
 				diagnostics = append(diagnostics, diags...)
-				index += len(scope_tokens)
+				index += len(rawScopeTokens)
 			case "else_header":
 				output = output[:len(output)-1]
-				scope_tokens, foundClose := tokensUntilMatchingClose(tokens[index+1:], l.OPEN_CURLY, l.CLOSE_CURLY)
+				rawScopeTokens, foundClose := tokensUntilMatchingClose(tokens[index+1:], l.OPEN_CURLY, l.CLOSE_CURLY)
 				if !foundClose {
 					diagnostics = append(diagnostics, diagnosticAtIndex("missing closing }", tokens, index, "error"))
 				}
+				scope_tokens := trimTrailingToken(rawScopeTokens, l.CLOSE_CURLY)
 				scope_children, diags := Parse(scope_tokens)
 				scope_node := Node{"scope", NodeData{}, scope_children}
 				output = append(output, Node{"else_clause", NodeData{}, []Node{scope_node}})
 				diagnostics = append(diagnostics, diags...)
-				index += len(scope_tokens)
+				index += len(rawScopeTokens)
 			default:
 				diagnostics = append(diagnostics, diagnosticAtIndex("unexpected {", tokens, index, "error"))
 				output = append(output, Node{"open_curly", NodeData{}, []Node{}})
@@ -725,6 +734,8 @@ func Parse(tokens []l.Token) ([]Node, []d.Diagnostic) {
 			diagnostics = append(diagnostics, diagnosticAtIndex("unexpected ]", tokens, index, "error"))
 		case l.CLOSE_CURLY:
 			diagnostics = append(diagnostics, diagnosticAtIndex("unexpected }", tokens, index, "error"))
+		case l.COLON:
+			// Ignore colons (used in case/default labels)
 		default:
 		}
 		index++
