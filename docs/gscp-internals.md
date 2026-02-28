@@ -10,7 +10,6 @@ This document explains how the gscp codebase works under the hood. It is meant t
 - `generator/generator.go` - Generator that converts AST back to GSC source.
 - `diagnostics/diagnostics.go` - Diagnostic data structure.
 - `demo/` - Sample GSC input, AST JSON output, and regenerated GSC.
-- `input/` - Additional example input.
 - `test.sh`, `TESTS.md` - Test runner and latest test output.
 
 ## CLI behavior and data flow
