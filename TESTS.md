@@ -6,6 +6,24 @@
 --- PASS: TestDiagnosticsLexerUnterminatedString (0.00s)
 === RUN   TestDiagnosticsLexerInvalidToken
 --- PASS: TestDiagnosticsLexerInvalidToken (0.00s)
+=== RUN   TestDiagnosticsLexerUnterminatedBlockComment
+--- PASS: TestDiagnosticsLexerUnterminatedBlockComment (0.00s)
+=== RUN   TestDiagnosticsLexerSkipsLineComment
+--- PASS: TestDiagnosticsLexerSkipsLineComment (0.00s)
+=== RUN   TestDiagnosticsLexerSkipsBlockComment
+--- PASS: TestDiagnosticsLexerSkipsBlockComment (0.00s)
+=== RUN   TestDiagnosticsLexerSymbolStarts
+--- PASS: TestDiagnosticsLexerSymbolStarts (0.00s)
+=== RUN   TestDiagnosticsWaitFunctionCall
+--- PASS: TestDiagnosticsWaitFunctionCall (0.00s)
+=== RUN   TestDiagnosticsIncrementOperator
+--- PASS: TestDiagnosticsIncrementOperator (0.00s)
+=== RUN   TestDiagnosticsNestedBlockComment
+--- PASS: TestDiagnosticsNestedBlockComment (0.00s)
+=== RUN   TestDiagnosticsDoubleNegation
+--- PASS: TestDiagnosticsDoubleNegation (0.00s)
+=== RUN   TestDiagnosticsPercentPrefix
+--- PASS: TestDiagnosticsPercentPrefix (0.00s)
 === RUN   TestDiagnosticsMissingIncludePath
 --- PASS: TestDiagnosticsMissingIncludePath (0.00s)
 === RUN   TestDiagnosticsMissingWaitDuration
@@ -35,7 +53,7 @@
 === RUN   TestDiagnosticsUnexpectedCloseCurly
 --- PASS: TestDiagnosticsUnexpectedCloseCurly (0.00s)
 PASS
-ok  	github.com/maxvanasten/gscp/diagnostics	0.004s
+ok  	github.com/maxvanasten/gscp/diagnostics	0.008s
 === RUN   Test_Generate_VariableReference
 --- PASS: Test_Generate_VariableReference (0.00s)
 === RUN   Test_Generate_String
@@ -125,7 +143,7 @@ ok  	github.com/maxvanasten/gscp/diagnostics	0.004s
 === RUN   Test_Generate_SwitchStatement
 --- PASS: Test_Generate_SwitchStatement (0.00s)
 PASS
-ok  	github.com/maxvanasten/gscp/generator	0.007s
+ok  	github.com/maxvanasten/gscp/generator	0.010s
 === RUN   TestLexerSymbol
 --- PASS: TestLexerSymbol (0.00s)
 === RUN   TestLexerNumber
@@ -161,7 +179,7 @@ ok  	github.com/maxvanasten/gscp/generator	0.007s
 === RUN   TestLexerLogicalOperators
 --- PASS: TestLexerLogicalOperators (0.00s)
 PASS
-ok  	github.com/maxvanasten/gscp/lexer	0.005s
+ok  	github.com/maxvanasten/gscp/lexer	0.006s
 === RUN   Test_Variable_Reference
 --- PASS: Test_Variable_Reference (0.00s)
 === RUN   Test_String

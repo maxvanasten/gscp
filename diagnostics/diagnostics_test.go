@@ -99,6 +99,27 @@ func TestDiagnosticsIncrementOperator(t *testing.T) {
 	assert.Len(t, diags, 0)
 }
 
+func TestDiagnosticsNestedBlockComment(t *testing.T) {
+	input := []byte("/# outer /# inner #/ still outer #/ x = 1;")
+	lexer := l.NewLexer(input)
+	_, diags := p.Parse(lexer.GetTokens())
+	assert.Len(t, diags, 0)
+}
+
+func TestDiagnosticsDoubleNegation(t *testing.T) {
+	input := []byte("if ( !!isdefined( x ) ) { }")
+	lexer := l.NewLexer(input)
+	_, diags := p.Parse(lexer.GetTokens())
+	assert.Len(t, diags, 0)
+}
+
+func TestDiagnosticsPercentPrefix(t *testing.T) {
+	input := []byte("anim = %o_riot_stand_deploy;")
+	lexer := l.NewLexer(input)
+	_, diags := p.Parse(lexer.GetTokens())
+	assert.Len(t, diags, 0)
+}
+
 func TestDiagnosticsMissingIncludePath(t *testing.T) {
 	input := []l.Token{
 		tokAt(l.SYMBOL, "#include", 1),
