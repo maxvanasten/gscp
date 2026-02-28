@@ -94,6 +94,10 @@ type Lexer struct {
 	diagnostics []d.Diagnostic
 }
 
+func (l *Lexer) emitToken(tokenType TokenType, content string, startLine int, startCol int, endLine int, endCol int) {
+	l.tokens = append(l.tokens, Token{Type: tokenType, Content: content, Line: startLine, Col: startCol, EndLine: endLine, EndCol: endCol})
+}
+
 func isSymbolStart(buffer []byte) bool {
 	if len(buffer) == 0 {
 		return false
@@ -204,6 +208,79 @@ func (l *Lexer) HandleBuffer() {
 	l.buffer = []byte{}
 }
 
+func (l *Lexer) handleOperatorToken(c byte, startLine int, startCol int) int {
+	endCol := startCol
+	if l.index+1 < len(l.input) {
+		next := l.input[l.index+1]
+		switch c {
+		case '+', '-':
+			if next == c {
+				l.HandleBuffer()
+				l.emitToken(OPERATOR, string([]byte{c, c}), startLine, startCol, startLine, startCol+1)
+				return 2
+			}
+			if next == '=' {
+				l.HandleBuffer()
+				l.emitToken(ASSIGNMENT, string([]byte{c, '='}), startLine, startCol, startLine, startCol+1)
+				return 2
+			}
+		case '*', '/', '%', '?', '^', '~':
+			if next == '=' {
+				l.HandleBuffer()
+				l.emitToken(ASSIGNMENT, string([]byte{c, '='}), startLine, startCol, startLine, startCol+1)
+				return 2
+			}
+		case '<', '>':
+			if next == c {
+				l.HandleBuffer()
+				l.emitToken(OPERATOR, string([]byte{c, c}), startLine, startCol, startLine, startCol+1)
+				return 2
+			}
+			if next == '=' {
+				l.HandleBuffer()
+				l.emitToken(OPERATOR, string([]byte{c, '='}), startLine, startCol, startLine, startCol+1)
+				return 2
+			}
+		case '&', '|':
+			if next == '=' {
+				l.HandleBuffer()
+				l.emitToken(ASSIGNMENT, string([]byte{c, '='}), startLine, startCol, startLine, startCol+1)
+				return 2
+			}
+			if next == c {
+				l.HandleBuffer()
+				l.emitToken(OPERATOR, string([]byte{c, c}), startLine, startCol, startLine, startCol+1)
+				return 2
+			}
+		case '=':
+			if next == '=' {
+				l.HandleBuffer()
+				l.emitToken(OPERATOR, "==", startLine, startCol, startLine, startCol+1)
+				return 2
+			}
+		case '!':
+			if next == '=' {
+				l.HandleBuffer()
+				l.emitToken(OPERATOR, "!=", startLine, startCol, startLine, startCol+1)
+				return 2
+			}
+			if next == '!' {
+				l.HandleBuffer()
+				l.emitToken(OPERATOR, "!!", startLine, startCol, startLine, startCol+1)
+				return 2
+			}
+		}
+	}
+
+	l.HandleBuffer()
+	if c == '=' {
+		l.emitToken(ASSIGNMENT, "=", startLine, startCol, startLine, endCol)
+		return 1
+	}
+	l.emitToken(OPERATOR, strings.TrimSpace(string(c)), startLine, startCol, startLine, endCol)
+	return 1
+}
+
 func TokensUntilAny(tokens []Token, targets []TokenType) []Token {
 	token_buffer := []Token{}
 
@@ -221,7 +298,7 @@ func (l *Lexer) HandleCharacter(c byte) int {
 	startLine := l.line
 	startCol := l.col
 	switch c {
-	case '+', '-', '*', '/', '%', '?', '^', '~':
+	case '+', '-', '*', '/', '%', '?', '^', '~', '<', '>', '&', '|', '=', '!':
 		if c == '/' && l.index+1 < len(l.input) {
 			next := l.input[l.index+1]
 			if next == '/' {
@@ -260,70 +337,7 @@ func (l *Lexer) HandleCharacter(c byte) int {
 				return len(l.input) - l.index
 			}
 		}
-		if (c == '+' || c == '-') && l.index+1 < len(l.input) && l.input[l.index+1] == c {
-			l.HandleBuffer()
-			l.tokens = append(l.tokens, Token{Type: OPERATOR, Content: string([]byte{c, c}), Line: startLine, Col: startCol, EndLine: startLine, EndCol: startCol + 1})
-			return 2
-		}
-		if l.index+1 < len(l.input) && l.input[l.index+1] == '=' {
-			l.HandleBuffer()
-			l.tokens = append(l.tokens, Token{Type: ASSIGNMENT, Content: string([]byte{c, '='}), Line: startLine, Col: startCol, EndLine: startLine, EndCol: startCol + 1})
-			return 2
-		}
-		l.HandleBuffer()
-		l.tokens = append(l.tokens, Token{Type: OPERATOR, Content: strings.TrimSpace(string(c)), Line: startLine, Col: startCol, EndLine: startLine, EndCol: startCol})
-		return 1
-	case '<', '>':
-		if l.index+1 < len(l.input) && l.input[l.index+1] == c {
-			l.HandleBuffer()
-			l.tokens = append(l.tokens, Token{Type: OPERATOR, Content: string([]byte{c, c}), Line: startLine, Col: startCol, EndLine: startLine, EndCol: startCol + 1})
-			return 2
-		}
-		if l.index+1 < len(l.input) && l.input[l.index+1] == '=' {
-			l.HandleBuffer()
-			l.tokens = append(l.tokens, Token{Type: OPERATOR, Content: string([]byte{c, '='}), Line: startLine, Col: startCol, EndLine: startLine, EndCol: startCol + 1})
-			return 2
-		}
-		l.HandleBuffer()
-		l.tokens = append(l.tokens, Token{Type: OPERATOR, Content: strings.TrimSpace(string(c)), Line: startLine, Col: startCol, EndLine: startLine, EndCol: startCol})
-		return 1
-	case '&', '|':
-		if l.index+1 < len(l.input) && l.input[l.index+1] == '=' {
-			l.HandleBuffer()
-			l.tokens = append(l.tokens, Token{Type: ASSIGNMENT, Content: string([]byte{c, '='}), Line: startLine, Col: startCol, EndLine: startLine, EndCol: startCol + 1})
-			return 2
-		}
-		if l.index+1 < len(l.input) && l.input[l.index+1] == c {
-			l.HandleBuffer()
-			l.tokens = append(l.tokens, Token{Type: OPERATOR, Content: string([]byte{c, c}), Line: startLine, Col: startCol, EndLine: startLine, EndCol: startCol + 1})
-			return 2
-		}
-		l.HandleBuffer()
-		l.tokens = append(l.tokens, Token{Type: OPERATOR, Content: strings.TrimSpace(string(c)), Line: startLine, Col: startCol, EndLine: startLine, EndCol: startCol})
-		return 1
-	case '=':
-		if l.index+1 < len(l.input) && l.input[l.index+1] == '=' {
-			l.HandleBuffer()
-			l.tokens = append(l.tokens, Token{Type: OPERATOR, Content: "==", Line: startLine, Col: startCol, EndLine: startLine, EndCol: startCol + 1})
-			return 2
-		}
-		l.HandleBuffer()
-		l.tokens = append(l.tokens, Token{Type: ASSIGNMENT, Content: "=", Line: startLine, Col: startCol, EndLine: startLine, EndCol: startCol})
-		return 1
-	case '!':
-		if l.index+1 < len(l.input) && l.input[l.index+1] == '=' {
-			l.HandleBuffer()
-			l.tokens = append(l.tokens, Token{Type: OPERATOR, Content: "!=", Line: startLine, Col: startCol, EndLine: startLine, EndCol: startCol + 1})
-			return 2
-		}
-		if l.index+1 < len(l.input) && l.input[l.index+1] == '!' {
-			l.HandleBuffer()
-			l.tokens = append(l.tokens, Token{Type: OPERATOR, Content: "!!", Line: startLine, Col: startCol, EndLine: startLine, EndCol: startCol + 1})
-			return 2
-		}
-		l.HandleBuffer()
-		l.tokens = append(l.tokens, Token{Type: OPERATOR, Content: "!", Line: startLine, Col: startCol, EndLine: startLine, EndCol: startCol})
-		return 1
+		return l.handleOperatorToken(c, startLine, startCol)
 	case '#':
 		if l.index+1 < len(l.input) && l.input[l.index+1] == '/' {
 			l.HandleBuffer()

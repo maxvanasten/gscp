@@ -81,6 +81,314 @@ func trimTrailingAny(tokens []l.Token, tokenTypes ...l.TokenType) []l.Token {
 	return tokens
 }
 
+func splitTopLevel(tokens []l.Token, delimiter l.TokenType, dropTrailingEmpty bool) [][]l.Token {
+	segments := [][]l.Token{}
+	buf := []l.Token{}
+	depthParen := 0
+	depthBracket := 0
+	for _, tok := range tokens {
+		switch tok.Type {
+		case l.OPEN_PAREN:
+			depthParen++
+			buf = append(buf, tok)
+		case l.CLOSE_PAREN:
+			if depthParen > 0 {
+				depthParen--
+			}
+			buf = append(buf, tok)
+		case l.OPEN_BRACKET:
+			depthBracket++
+			buf = append(buf, tok)
+		case l.CLOSE_BRACKET:
+			if depthBracket > 0 {
+				depthBracket--
+			}
+			buf = append(buf, tok)
+		case delimiter:
+			if depthParen == 0 && depthBracket == 0 {
+				segments = append(segments, buf)
+				buf = []l.Token{}
+			} else {
+				buf = append(buf, tok)
+			}
+		default:
+			buf = append(buf, tok)
+		}
+	}
+	segments = append(segments, buf)
+	if dropTrailingEmpty && len(segments) > 0 && len(segments[len(segments)-1]) == 0 {
+		segments = segments[:len(segments)-1]
+	}
+	return segments
+}
+
+func topLevelIndex(tokens []l.Token, tokenType l.TokenType) int {
+	depthParen := 0
+	depthBracket := 0
+	for i, tok := range tokens {
+		switch tok.Type {
+		case l.OPEN_PAREN:
+			depthParen++
+		case l.CLOSE_PAREN:
+			if depthParen > 0 {
+				depthParen--
+			}
+		case l.OPEN_BRACKET:
+			depthBracket++
+		case l.CLOSE_BRACKET:
+			if depthBracket > 0 {
+				depthBracket--
+			}
+		}
+		if depthParen == 0 && depthBracket == 0 && tok.Type == tokenType {
+			return i
+		}
+	}
+	return -1
+}
+
+func hasTopLevelToken(tokens []l.Token, tokenType l.TokenType) bool {
+	return topLevelIndex(tokens, tokenType) >= 0
+}
+
+func parseScope(tokens []l.Token, index int) (Node, []d.Diagnostic, int) {
+	rawScopeTokens, foundClose := tokensUntilMatchingClose(tokens[index+1:], l.OPEN_CURLY, l.CLOSE_CURLY)
+	diagnostics := []d.Diagnostic{}
+	if !foundClose {
+		diagnostics = append(diagnostics, diagnosticAtIndex("missing closing }", tokens, index, "error"))
+	}
+	scopeTokens := trimTrailingToken(rawScopeTokens, l.CLOSE_CURLY)
+	scopeChildren, scopeDiags := Parse(scopeTokens)
+	diagnostics = append(diagnostics, scopeDiags...)
+	scopeNode := Node{"scope", NodeData{}, scopeChildren}
+	return scopeNode, diagnostics, len(rawScopeTokens)
+}
+
+func parseOperatorToken(tokens []l.Token, index int, output []Node) ([]Node, []d.Diagnostic, int, bool) {
+	if index < 0 || index >= len(tokens) {
+		return output, nil, index, false
+	}
+	if tokens[index].Type != l.OPERATOR {
+		return output, nil, index, false
+	}
+	updated := output
+	diagnostics := []d.Diagnostic{}
+	newIndex := index
+
+	// Unary operator handling
+	if tokens[index].Content == "!" || tokens[index].Content == "!!" || tokens[index].Content == "-" || tokens[index].Content == "&" || tokens[index].Content == "~" || tokens[index].Content == "%" {
+		isUnary := index == 0
+		if index > 0 {
+			prev := tokens[index-1].Type
+			if prev == l.OPERATOR || prev == l.ASSIGNMENT || prev == l.OPEN_PAREN || prev == l.OPEN_BRACKET || prev == l.COMMA || prev == l.NEWLINE || prev == l.TERMINATOR {
+				isUnary = true
+			}
+		}
+		if isUnary {
+			operand_tokens := []l.Token{}
+			depthParen := 0
+			depthBracket := 0
+			for i := index + 1; i < len(tokens); i++ {
+				curr := tokens[i]
+				if depthParen == 0 && depthBracket == 0 {
+					if curr.Type == l.OPERATOR || curr.Type == l.TERMINATOR || curr.Type == l.COMMA || curr.Type == l.NEWLINE || curr.Type == l.CLOSE_PAREN || curr.Type == l.CLOSE_BRACKET || curr.Type == l.CLOSE_CURLY {
+						break
+					}
+				}
+				switch curr.Type {
+				case l.OPEN_PAREN:
+					depthParen++
+				case l.CLOSE_PAREN:
+					if depthParen > 0 {
+						depthParen--
+					}
+				case l.OPEN_BRACKET:
+					depthBracket++
+				case l.CLOSE_BRACKET:
+					if depthBracket > 0 {
+						depthBracket--
+					}
+				}
+				operand_tokens = append(operand_tokens, curr)
+			}
+			if len(operand_tokens) > 0 {
+				operand_children, diags := Parse(operand_tokens)
+				if len(operand_children) > 0 {
+					operand := operand_children[0]
+					updated = append(updated, Node{"unary_expression", NodeData{Operator: tokens[index].Content}, []Node{operand}})
+					diagnostics = append(diagnostics, diags...)
+					newIndex += len(operand_tokens)
+					return updated, diagnostics, newIndex, true
+				}
+				diagnostics = append(diagnostics, diags...)
+			}
+			diagnostics = append(diagnostics, diagnosticAtIndex("missing unary operand", tokens, index, "error"))
+			return updated, diagnostics, newIndex, true
+		}
+	}
+
+	if tokens[index].Content == "++" || tokens[index].Content == "--" {
+		if len(updated) > 0 {
+			previous_node := updated[len(updated)-1]
+			if previous_node.Type == "variable_reference" {
+				updated = updated[:len(updated)-1]
+				operator := "+"
+				if tokens[index].Content == "--" {
+					operator = "-"
+				}
+				lhs := Node{"lhs", NodeData{}, []Node{previous_node}}
+				rhs := Node{"rhs", NodeData{}, []Node{{"number", NodeData{Content: "1"}, []Node{}}}}
+				expr := Node{"expression", NodeData{Operator: operator}, []Node{lhs, rhs}}
+				assignment_data := NodeData{VarName: previous_node.Data.VarName, Index: previous_node.Data.Index}
+				updated = append(updated, Node{"assignment", assignment_data, []Node{expr}})
+				return updated, diagnostics, newIndex, true
+			}
+		}
+		operand_tokens := []l.Token{}
+		depthParen := 0
+		depthBracket := 0
+		for i := index + 1; i < len(tokens); i++ {
+			curr := tokens[i]
+			if depthParen == 0 && depthBracket == 0 {
+				if curr.Type == l.OPERATOR || curr.Type == l.TERMINATOR || curr.Type == l.COMMA || curr.Type == l.NEWLINE || curr.Type == l.CLOSE_PAREN || curr.Type == l.CLOSE_BRACKET || curr.Type == l.CLOSE_CURLY {
+					break
+				}
+			}
+			switch curr.Type {
+			case l.OPEN_PAREN:
+				depthParen++
+			case l.CLOSE_PAREN:
+				if depthParen > 0 {
+					depthParen--
+				}
+			case l.OPEN_BRACKET:
+				depthBracket++
+			case l.CLOSE_BRACKET:
+				if depthBracket > 0 {
+					depthBracket--
+				}
+			}
+			operand_tokens = append(operand_tokens, curr)
+		}
+		if len(operand_tokens) > 0 {
+			operand_children, diags := Parse(operand_tokens)
+			if len(operand_children) > 0 {
+				operand := operand_children[0]
+				if operand.Type == "variable_reference" {
+					operator := "+"
+					if tokens[index].Content == "--" {
+						operator = "-"
+					}
+					lhs := Node{"lhs", NodeData{}, []Node{operand}}
+					rhs := Node{"rhs", NodeData{}, []Node{{"number", NodeData{Content: "1"}, []Node{}}}}
+					expr := Node{"expression", NodeData{Operator: operator}, []Node{lhs, rhs}}
+					assignment_data := NodeData{VarName: operand.Data.VarName, Index: operand.Data.Index}
+					updated = append(updated, Node{"assignment", assignment_data, []Node{expr}})
+					diagnostics = append(diagnostics, diags...)
+					newIndex += len(operand_tokens)
+					return updated, diagnostics, newIndex, true
+				}
+			}
+			diagnostics = append(diagnostics, diags...)
+		}
+		return updated, diagnostics, newIndex, true
+	}
+
+	if tokens[index].Content == "?" {
+		if len(updated) == 0 {
+			diagnostics = append(diagnostics, diagnosticAtIndex("operator missing left-hand operand", tokens, index, "error"))
+			return updated, diagnostics, newIndex, true
+		}
+		condition := updated[len(updated)-1]
+		updated = updated[:len(updated)-1]
+		expr_tokens := l.TokensUntilAny(tokens[index+1:], []l.TokenType{l.NEWLINE, l.TERMINATOR})
+		splitIndex := topLevelIndex(expr_tokens, l.COLON)
+		true_tokens := []l.Token{}
+		false_tokens := []l.Token{}
+		if splitIndex >= 0 {
+			true_tokens = expr_tokens[:splitIndex]
+			false_tokens = expr_tokens[splitIndex+1:]
+			false_tokens = trimTrailingAny(false_tokens, l.TERMINATOR, l.NEWLINE)
+		} else {
+			true_tokens = expr_tokens
+		}
+		true_tokens = trimTrailingAny(true_tokens, l.TERMINATOR, l.NEWLINE)
+		true_children, true_diags := Parse(true_tokens)
+		false_children, false_diags := Parse(false_tokens)
+		ternary := Node{"ternary_expression", NodeData{}, []Node{
+			{"condition", NodeData{}, []Node{condition}},
+			{"true_expr", NodeData{}, true_children},
+			{"false_expr", NodeData{}, false_children},
+		}}
+		updated = append(updated, ternary)
+		diagnostics = append(diagnostics, true_diags...)
+		diagnostics = append(diagnostics, false_diags...)
+		newIndex += len(expr_tokens)
+		return updated, diagnostics, newIndex, true
+	}
+
+	if index <= 0 {
+		diagnostics = append(diagnostics, diagnosticAtIndex("operator missing left-hand operand", tokens, index, "error"))
+		return updated, diagnostics, newIndex, true
+	}
+	if len(updated) == 0 {
+		diagnostics = append(diagnostics, diagnosticAtIndex("operator missing left-hand operand", tokens, index, "error"))
+		return updated, diagnostics, newIndex, true
+	}
+	// Check if previous node is either a string, variable_reference, number, function_call or another expression
+	previous_node := updated[len(updated)-1]
+	switch previous_node.Type {
+	case "string", "variable_reference", "number", "function_call", "expression":
+		// Set LHS to previous node
+		lhs := Node{"lhs", NodeData{}, []Node{previous_node}}
+		// Delete previous node
+		updated = updated[:len(updated)-1]
+		// Get all tokens from OPERATOR until END, NEWLINE or TERMINATOR
+		expr_tokens := l.TokensUntilAny(tokens[index+1:], []l.TokenType{l.NEWLINE, l.TERMINATOR})
+		if tokens[index].Content == "&&" {
+			depthParen := 0
+			depthBracket := 0
+			cutIndex := -1
+			for i, tok := range expr_tokens {
+				switch tok.Type {
+				case l.OPEN_PAREN:
+					depthParen++
+				case l.CLOSE_PAREN:
+					if depthParen > 0 {
+						depthParen--
+					}
+				case l.OPEN_BRACKET:
+					depthBracket++
+				case l.CLOSE_BRACKET:
+					if depthBracket > 0 {
+						depthBracket--
+					}
+				}
+				if depthParen == 0 && depthBracket == 0 && tok.Type == l.OPERATOR && tok.Content == "||" {
+					cutIndex = i
+					break
+				}
+			}
+			if cutIndex >= 0 {
+				expr_tokens = expr_tokens[:cutIndex]
+			}
+		}
+		// Parse those tokens into RHS
+		rhs_children, diags := Parse(expr_tokens)
+		rhs := Node{"rhs", NodeData{}, rhs_children}
+		if len(rhs_children) == 0 {
+			diagnostics = append(diagnostics, diagnosticAtIndex("operator missing right-hand operand", tokens, index, "error"))
+		}
+		// Add Expression node to output
+		updated = append(updated, Node{"expression", NodeData{Operator: tokens[index].Content}, []Node{lhs, rhs}})
+		diagnostics = append(diagnostics, diags...)
+		newIndex += len(expr_tokens)
+	default:
+		updated = append(updated, Node{"operator", NodeData{Content: tokens[index].Content}, []Node{}})
+	}
+	return updated, diagnostics, newIndex, true
+}
+
 func diagnosticAtToken(message string, token l.Token, severity string) d.Diagnostic {
 	line := token.Line
 	col := token.Col
@@ -160,233 +468,12 @@ func Parse(tokens []l.Token) ([]Node, []d.Diagnostic) {
 		case l.NUMBER:
 			output = append(output, Node{"number", NodeData{Content: tokens[index].Content}, []Node{}})
 		case l.OPERATOR:
-			// Unary operator handling
-			if tokens[index].Content == "!" || tokens[index].Content == "!!" || tokens[index].Content == "-" || tokens[index].Content == "&" || tokens[index].Content == "~" || tokens[index].Content == "%" {
-				isUnary := index == 0
-				if index > 0 {
-					prev := tokens[index-1].Type
-					if prev == l.OPERATOR || prev == l.ASSIGNMENT || prev == l.OPEN_PAREN || prev == l.OPEN_BRACKET || prev == l.COMMA || prev == l.NEWLINE || prev == l.TERMINATOR {
-						isUnary = true
-					}
-				}
-				if isUnary {
-					operand_tokens := []l.Token{}
-					depthParen := 0
-					depthBracket := 0
-					for i := index + 1; i < len(tokens); i++ {
-						curr := tokens[i]
-						if depthParen == 0 && depthBracket == 0 {
-							if curr.Type == l.OPERATOR || curr.Type == l.TERMINATOR || curr.Type == l.COMMA || curr.Type == l.NEWLINE || curr.Type == l.CLOSE_PAREN || curr.Type == l.CLOSE_BRACKET || curr.Type == l.CLOSE_CURLY {
-								break
-							}
-						}
-						switch curr.Type {
-						case l.OPEN_PAREN:
-							depthParen++
-						case l.CLOSE_PAREN:
-							if depthParen > 0 {
-								depthParen--
-							}
-						case l.OPEN_BRACKET:
-							depthBracket++
-						case l.CLOSE_BRACKET:
-							if depthBracket > 0 {
-								depthBracket--
-							}
-						}
-						operand_tokens = append(operand_tokens, curr)
-					}
-					if len(operand_tokens) > 0 {
-						operand_children, diags := Parse(operand_tokens)
-						if len(operand_children) > 0 {
-							operand := operand_children[0]
-							output = append(output, Node{"unary_expression", NodeData{Operator: tokens[index].Content}, []Node{operand}})
-							diagnostics = append(diagnostics, diags...)
-							index += len(operand_tokens)
-							break
-						}
-						diagnostics = append(diagnostics, diags...)
-					}
-					diagnostics = append(diagnostics, diagnosticAtIndex("missing unary operand", tokens, index, "error"))
-				}
-			}
-			if tokens[index].Content == "++" || tokens[index].Content == "--" {
-				if len(output) > 0 {
-					previous_node := output[len(output)-1]
-					if previous_node.Type == "variable_reference" {
-						output = output[:len(output)-1]
-						operator := "+"
-						if tokens[index].Content == "--" {
-							operator = "-"
-						}
-						lhs := Node{"lhs", NodeData{}, []Node{previous_node}}
-						rhs := Node{"rhs", NodeData{}, []Node{{"number", NodeData{Content: "1"}, []Node{}}}}
-						expr := Node{"expression", NodeData{Operator: operator}, []Node{lhs, rhs}}
-						assignment_data := NodeData{VarName: previous_node.Data.VarName, Index: previous_node.Data.Index}
-						output = append(output, Node{"assignment", assignment_data, []Node{expr}})
-						break
-					}
-				}
-				operand_tokens := []l.Token{}
-				depthParen := 0
-				depthBracket := 0
-				for i := index + 1; i < len(tokens); i++ {
-					curr := tokens[i]
-					if depthParen == 0 && depthBracket == 0 {
-						if curr.Type == l.OPERATOR || curr.Type == l.TERMINATOR || curr.Type == l.COMMA || curr.Type == l.NEWLINE || curr.Type == l.CLOSE_PAREN || curr.Type == l.CLOSE_BRACKET || curr.Type == l.CLOSE_CURLY {
-							break
-						}
-					}
-					switch curr.Type {
-					case l.OPEN_PAREN:
-						depthParen++
-					case l.CLOSE_PAREN:
-						if depthParen > 0 {
-							depthParen--
-						}
-					case l.OPEN_BRACKET:
-						depthBracket++
-					case l.CLOSE_BRACKET:
-						if depthBracket > 0 {
-							depthBracket--
-						}
-					}
-					operand_tokens = append(operand_tokens, curr)
-				}
-				if len(operand_tokens) > 0 {
-					operand_children, diags := Parse(operand_tokens)
-					if len(operand_children) > 0 {
-						operand := operand_children[0]
-						if operand.Type == "variable_reference" {
-							operator := "+"
-							if tokens[index].Content == "--" {
-								operator = "-"
-							}
-							lhs := Node{"lhs", NodeData{}, []Node{operand}}
-							rhs := Node{"rhs", NodeData{}, []Node{{"number", NodeData{Content: "1"}, []Node{}}}}
-							expr := Node{"expression", NodeData{Operator: operator}, []Node{lhs, rhs}}
-							assignment_data := NodeData{VarName: operand.Data.VarName, Index: operand.Data.Index}
-							output = append(output, Node{"assignment", assignment_data, []Node{expr}})
-							diagnostics = append(diagnostics, diags...)
-							index += len(operand_tokens)
-							break
-						}
-					}
-					diagnostics = append(diagnostics, diags...)
-				}
-			}
-			if tokens[index].Content == "?" {
-				if len(output) == 0 {
-					diagnostics = append(diagnostics, diagnosticAtIndex("operator missing left-hand operand", tokens, index, "error"))
-					break
-				}
-				condition := output[len(output)-1]
-				output = output[:len(output)-1]
-				expr_tokens := l.TokensUntilAny(tokens[index+1:], []l.TokenType{l.NEWLINE, l.TERMINATOR})
-				depthParen := 0
-				depthBracket := 0
-				splitIndex := -1
-				for i, tok := range expr_tokens {
-					switch tok.Type {
-					case l.OPEN_PAREN:
-						depthParen++
-					case l.CLOSE_PAREN:
-						if depthParen > 0 {
-							depthParen--
-						}
-					case l.OPEN_BRACKET:
-						depthBracket++
-					case l.CLOSE_BRACKET:
-						if depthBracket > 0 {
-							depthBracket--
-						}
-					}
-					if depthParen == 0 && depthBracket == 0 && tok.Type == l.COLON {
-						splitIndex = i
-						break
-					}
-				}
-				true_tokens := []l.Token{}
-				false_tokens := []l.Token{}
-				if splitIndex >= 0 {
-					true_tokens = expr_tokens[:splitIndex]
-					false_tokens = expr_tokens[splitIndex+1:]
-					false_tokens = trimTrailingAny(false_tokens, l.TERMINATOR, l.NEWLINE)
-				} else {
-					true_tokens = expr_tokens
-				}
-				true_tokens = trimTrailingAny(true_tokens, l.TERMINATOR, l.NEWLINE)
-				true_children, true_diags := Parse(true_tokens)
-				false_children, false_diags := Parse(false_tokens)
-				ternary := Node{"ternary_expression", NodeData{}, []Node{
-					{"condition", NodeData{}, []Node{condition}},
-					{"true_expr", NodeData{}, true_children},
-					{"false_expr", NodeData{}, false_children},
-				}}
-				output = append(output, ternary)
-				diagnostics = append(diagnostics, true_diags...)
-				diagnostics = append(diagnostics, false_diags...)
-				index += len(expr_tokens)
+			updatedOutput, opDiags, newIndex, handled := parseOperatorToken(tokens, index, output)
+			if handled {
+				output = updatedOutput
+				diagnostics = append(diagnostics, opDiags...)
+				index = newIndex
 				break
-			}
-			if index <= 0 {
-				diagnostics = append(diagnostics, diagnosticAtIndex("operator missing left-hand operand", tokens, index, "error"))
-				break
-			}
-			if len(output) == 0 {
-				diagnostics = append(diagnostics, diagnosticAtIndex("operator missing left-hand operand", tokens, index, "error"))
-				break
-			}
-			// Check if previous node is either a string, variable_reference, number, function_call or another expression
-			previous_node := output[len(output)-1]
-			switch previous_node.Type {
-			case "string", "variable_reference", "number", "function_call", "expression":
-				// Set LHS to previous node
-				lhs := Node{"lhs", NodeData{}, []Node{previous_node}}
-				// Delete previous node
-				output = output[:len(output)-1]
-				// Get all tokens from OPERATOR until END, NEWLINE or TERMINATOR
-				expr_tokens := l.TokensUntilAny(tokens[index+1:], []l.TokenType{l.NEWLINE, l.TERMINATOR})
-				if tokens[index].Content == "&&" {
-					depthParen := 0
-					depthBracket := 0
-					cutIndex := -1
-					for i, tok := range expr_tokens {
-						switch tok.Type {
-						case l.OPEN_PAREN:
-							depthParen++
-						case l.CLOSE_PAREN:
-							if depthParen > 0 {
-								depthParen--
-							}
-						case l.OPEN_BRACKET:
-							depthBracket++
-						case l.CLOSE_BRACKET:
-							if depthBracket > 0 {
-								depthBracket--
-							}
-						}
-						if depthParen == 0 && depthBracket == 0 && tok.Type == l.OPERATOR && tok.Content == "||" {
-							cutIndex = i
-							break
-						}
-					}
-					if cutIndex >= 0 {
-						expr_tokens = expr_tokens[:cutIndex]
-					}
-				}
-				// Parse those tokens into RHS
-				rhs_children, diags := Parse(expr_tokens)
-				rhs := Node{"rhs", NodeData{}, rhs_children}
-				if len(rhs_children) == 0 {
-					diagnostics = append(diagnostics, diagnosticAtIndex("operator missing right-hand operand", tokens, index, "error"))
-				}
-				// Add Expression node to output
-				output = append(output, Node{"expression", NodeData{Operator: tokens[index].Content}, []Node{lhs, rhs}})
-				diagnostics = append(diagnostics, diags...)
-				index += len(expr_tokens)
-			default:
-				output = append(output, Node{"operator", NodeData{Content: tokens[index].Content}, []Node{}})
 			}
 		case l.ASSIGNMENT:
 			if index <= 0 {
@@ -432,31 +519,7 @@ func Parse(tokens []l.Token) ([]Node, []d.Diagnostic) {
 				if previous_node.Type == "variable_reference" && previous_node.Data.VarName == "for" {
 					header_tokens := trimmedArgTokens
 
-					segments := [][]l.Token{}
-					buf := []l.Token{}
-					depth := 0
-					for _, ht := range header_tokens {
-						switch ht.Type {
-						case l.OPEN_PAREN:
-							depth++
-							buf = append(buf, ht)
-						case l.CLOSE_PAREN:
-							if depth > 0 {
-								depth--
-							}
-							buf = append(buf, ht)
-						case l.TERMINATOR:
-							if depth == 0 {
-								segments = append(segments, buf)
-								buf = []l.Token{}
-							} else {
-								buf = append(buf, ht)
-							}
-						default:
-							buf = append(buf, ht)
-						}
-					}
-					segments = append(segments, buf)
+					segments := splitTopLevel(header_tokens, l.TERMINATOR, false)
 					for len(segments) < 3 {
 						segments = append(segments, []l.Token{})
 					}
@@ -542,63 +605,9 @@ func Parse(tokens []l.Token) ([]Node, []d.Diagnostic) {
 
 			if len(output)-1 < 0 || output[len(output)-1].Type != "variable_reference" {
 				inner_tokens := trimmedArgTokens
-				depth := 0
-				hasComma := false
-				for _, tok := range inner_tokens {
-					switch tok.Type {
-					case l.OPEN_PAREN:
-						depth++
-					case l.CLOSE_PAREN:
-						if depth > 0 {
-							depth--
-						}
-					case l.COMMA:
-						if depth == 0 {
-							hasComma = true
-							break
-						}
-					}
-					if hasComma {
-						break
-					}
-				}
+				hasComma := hasTopLevelToken(inner_tokens, l.COMMA)
 				if hasComma {
-					elem_slices := [][]l.Token{}
-					buf := []l.Token{}
-					depthParen := 0
-					depthBracket := 0
-					for _, at := range inner_tokens {
-						switch at.Type {
-						case l.OPEN_PAREN:
-							depthParen++
-							buf = append(buf, at)
-						case l.CLOSE_PAREN:
-							if depthParen > 0 {
-								depthParen--
-							}
-							buf = append(buf, at)
-						case l.OPEN_BRACKET:
-							depthBracket++
-							buf = append(buf, at)
-						case l.CLOSE_BRACKET:
-							if depthBracket > 0 {
-								depthBracket--
-							}
-							buf = append(buf, at)
-						case l.COMMA:
-							if depthParen == 0 && depthBracket == 0 {
-								elem_slices = append(elem_slices, buf)
-								buf = []l.Token{}
-							} else {
-								buf = append(buf, at)
-							}
-						default:
-							buf = append(buf, at)
-						}
-					}
-					if len(buf) > 0 {
-						elem_slices = append(elem_slices, buf)
-					}
+					elem_slices := splitTopLevel(inner_tokens, l.COMMA, true)
 					vec_children := []Node{}
 					for _, elem_tokens := range elem_slices {
 						children, diags := Parse(elem_tokens)
@@ -618,30 +627,7 @@ func Parse(tokens []l.Token) ([]Node, []d.Diagnostic) {
 
 			arg_token_slices := [][]l.Token{}
 			// Split arg_tokens into slices at top-level commas only
-			buf := []l.Token{}
-			depth := 0
-			for _, at := range trimmedArgTokens {
-				switch at.Type {
-				case l.OPEN_PAREN:
-					depth++
-					buf = append(buf, at)
-				case l.CLOSE_PAREN:
-					if depth > 0 {
-						depth--
-					}
-					buf = append(buf, at)
-				case l.COMMA:
-					if depth == 0 {
-						arg_token_slices = append(arg_token_slices, buf)
-						buf = []l.Token{}
-					} else {
-						buf = append(buf, at)
-					}
-				default:
-					buf = append(buf, at)
-				}
-			}
-			arg_token_slices = append(arg_token_slices, buf)
+			arg_token_slices = splitTopLevel(trimmedArgTokens, l.COMMA, false)
 
 			arg_children := []Node{}
 			argDiagnostics := []d.Diagnostic{}
@@ -719,42 +705,7 @@ func Parse(tokens []l.Token) ([]Node, []d.Diagnostic) {
 			if len(array_tokens) > 0 && array_tokens[len(array_tokens)-1].Type == l.CLOSE_BRACKET {
 				array_tokens = array_tokens[:len(array_tokens)-1]
 			}
-			elem_slices := [][]l.Token{}
-			buf := []l.Token{}
-			depthParen := 0
-			depthBracket := 0
-			for _, at := range array_tokens {
-				switch at.Type {
-				case l.OPEN_PAREN:
-					depthParen++
-					buf = append(buf, at)
-				case l.CLOSE_PAREN:
-					if depthParen > 0 {
-						depthParen--
-					}
-					buf = append(buf, at)
-				case l.OPEN_BRACKET:
-					depthBracket++
-					buf = append(buf, at)
-				case l.CLOSE_BRACKET:
-					if depthBracket > 0 {
-						depthBracket--
-					}
-					buf = append(buf, at)
-				case l.COMMA:
-					if depthParen == 0 && depthBracket == 0 {
-						elem_slices = append(elem_slices, buf)
-						buf = []l.Token{}
-					} else {
-						buf = append(buf, at)
-					}
-				default:
-					buf = append(buf, at)
-				}
-			}
-			if len(buf) > 0 {
-				elem_slices = append(elem_slices, buf)
-			}
+			elem_slices := splitTopLevel(array_tokens, l.COMMA, true)
 
 			array_children := []Node{}
 			for _, elem_tokens := range elem_slices {
@@ -773,110 +724,60 @@ func Parse(tokens []l.Token) ([]Node, []d.Diagnostic) {
 			switch previous_node.Type {
 			case "function_call":
 				output = output[:len(output)-1]
-				// Get all tokens from OPEN_CURLY until matching CLOSE_CURLY
-				rawScopeTokens, foundClose := tokensUntilMatchingClose(tokens[index+1:], l.OPEN_CURLY, l.CLOSE_CURLY)
-				if !foundClose {
-					diagnostics = append(diagnostics, diagnosticAtIndex("missing closing }", tokens, index, "error"))
-				}
-				scope_tokens := trimTrailingToken(rawScopeTokens, l.CLOSE_CURLY)
-				// Parse those tokens into scope node
+				scope_node, scope_diags, rawLen := parseScope(tokens, index)
 				arg_node := Node{"args", NodeData{}, previous_node.Children}
-				scope_children, diags := Parse(scope_tokens)
-				scope_node := Node{"scope", NodeData{}, scope_children}
 				// Add function declararation node
 				output = append(output, Node{"function_declaration", NodeData{FunctionName: previous_node.Data.FunctionName}, []Node{arg_node, scope_node}})
-				diagnostics = append(diagnostics, diags...)
-				index += len(rawScopeTokens)
+				diagnostics = append(diagnostics, scope_diags...)
+				index += rawLen
 			case "for_header":
 				output = output[:len(output)-1]
-				rawScopeTokens, foundClose := tokensUntilMatchingClose(tokens[index+1:], l.OPEN_CURLY, l.CLOSE_CURLY)
-				if !foundClose {
-					diagnostics = append(diagnostics, diagnosticAtIndex("missing closing }", tokens, index, "error"))
-				}
-				scope_tokens := trimTrailingToken(rawScopeTokens, l.CLOSE_CURLY)
-				scope_children, diags := Parse(scope_tokens)
-				scope_node := Node{"scope", NodeData{}, scope_children}
+				scope_node, scope_diags, rawLen := parseScope(tokens, index)
 				for_children := append(previous_node.Children, scope_node)
 				output = append(output, Node{"for_loop", NodeData{}, for_children})
-				diagnostics = append(diagnostics, diags...)
-				index += len(rawScopeTokens)
+				diagnostics = append(diagnostics, scope_diags...)
+				index += rawLen
 			case "if_header":
 				output = output[:len(output)-1]
-				rawScopeTokens, foundClose := tokensUntilMatchingClose(tokens[index+1:], l.OPEN_CURLY, l.CLOSE_CURLY)
-				if !foundClose {
-					diagnostics = append(diagnostics, diagnosticAtIndex("missing closing }", tokens, index, "error"))
-				}
-				scope_tokens := trimTrailingToken(rawScopeTokens, l.CLOSE_CURLY)
-				scope_children, diags := Parse(scope_tokens)
-				scope_node := Node{"scope", NodeData{}, scope_children}
+				scope_node, scope_diags, rawLen := parseScope(tokens, index)
 				if_children := append(previous_node.Children, scope_node)
 				output = append(output, Node{"if_statement", NodeData{}, if_children})
-				diagnostics = append(diagnostics, diags...)
-				index += len(rawScopeTokens)
+				diagnostics = append(diagnostics, scope_diags...)
+				index += rawLen
 			case "while_header":
 				output = output[:len(output)-1]
-				rawScopeTokens, foundClose := tokensUntilMatchingClose(tokens[index+1:], l.OPEN_CURLY, l.CLOSE_CURLY)
-				if !foundClose {
-					diagnostics = append(diagnostics, diagnosticAtIndex("missing closing }", tokens, index, "error"))
-				}
-				scope_tokens := trimTrailingToken(rawScopeTokens, l.CLOSE_CURLY)
-				scope_children, diags := Parse(scope_tokens)
-				scope_node := Node{"scope", NodeData{}, scope_children}
+				scope_node, scope_diags, rawLen := parseScope(tokens, index)
 				while_children := append(previous_node.Children, scope_node)
 				output = append(output, Node{"while_loop", NodeData{}, while_children})
-				diagnostics = append(diagnostics, diags...)
-				index += len(rawScopeTokens)
+				diagnostics = append(diagnostics, scope_diags...)
+				index += rawLen
 			case "foreach_header":
 				output = output[:len(output)-1]
-				rawScopeTokens, foundClose := tokensUntilMatchingClose(tokens[index+1:], l.OPEN_CURLY, l.CLOSE_CURLY)
-				if !foundClose {
-					diagnostics = append(diagnostics, diagnosticAtIndex("missing closing }", tokens, index, "error"))
-				}
-				scope_tokens := trimTrailingToken(rawScopeTokens, l.CLOSE_CURLY)
-				scope_children, diags := Parse(scope_tokens)
-				scope_node := Node{"scope", NodeData{}, scope_children}
+				scope_node, scope_diags, rawLen := parseScope(tokens, index)
 				foreach_children := append(previous_node.Children, scope_node)
 				output = append(output, Node{"foreach_loop", NodeData{}, foreach_children})
-				diagnostics = append(diagnostics, diags...)
-				index += len(rawScopeTokens)
+				diagnostics = append(diagnostics, scope_diags...)
+				index += rawLen
 			case "switch_header":
 				output = output[:len(output)-1]
-				rawScopeTokens, foundClose := tokensUntilMatchingClose(tokens[index+1:], l.OPEN_CURLY, l.CLOSE_CURLY)
-				if !foundClose {
-					diagnostics = append(diagnostics, diagnosticAtIndex("missing closing }", tokens, index, "error"))
-				}
-				scope_tokens := trimTrailingToken(rawScopeTokens, l.CLOSE_CURLY)
-				scope_children, diags := Parse(scope_tokens)
-				scope_node := Node{"scope", NodeData{}, scope_children}
+				scope_node, scope_diags, rawLen := parseScope(tokens, index)
 				switch_children := append(previous_node.Children, scope_node)
 				output = append(output, Node{"switch_statement", NodeData{}, switch_children})
-				diagnostics = append(diagnostics, diags...)
-				index += len(rawScopeTokens)
+				diagnostics = append(diagnostics, scope_diags...)
+				index += rawLen
 			case "else_header":
 				output = output[:len(output)-1]
-				rawScopeTokens, foundClose := tokensUntilMatchingClose(tokens[index+1:], l.OPEN_CURLY, l.CLOSE_CURLY)
-				if !foundClose {
-					diagnostics = append(diagnostics, diagnosticAtIndex("missing closing }", tokens, index, "error"))
-				}
-				scope_tokens := trimTrailingToken(rawScopeTokens, l.CLOSE_CURLY)
-				scope_children, diags := Parse(scope_tokens)
-				scope_node := Node{"scope", NodeData{}, scope_children}
+				scope_node, scope_diags, rawLen := parseScope(tokens, index)
 				output = append(output, Node{"else_clause", NodeData{}, []Node{scope_node}})
-				diagnostics = append(diagnostics, diags...)
-				index += len(rawScopeTokens)
+				diagnostics = append(diagnostics, scope_diags...)
+				index += rawLen
 			case "do_header":
 				output = output[:len(output)-1]
-				rawScopeTokens, foundClose := tokensUntilMatchingClose(tokens[index+1:], l.OPEN_CURLY, l.CLOSE_CURLY)
-				if !foundClose {
-					diagnostics = append(diagnostics, diagnosticAtIndex("missing closing }", tokens, index, "error"))
-				}
-				scope_tokens := trimTrailingToken(rawScopeTokens, l.CLOSE_CURLY)
-				scope_children, scope_diags := Parse(scope_tokens)
+				scope_node, scope_diags, rawLen := parseScope(tokens, index)
 				diagnostics = append(diagnostics, scope_diags...)
-				scope_node := Node{"scope", NodeData{}, scope_children}
 
 				condition_children := []Node{}
-				consumedIndex := index + len(rawScopeTokens)
+				consumedIndex := index + rawLen
 				afterClose := consumedIndex + 1
 				if afterClose < len(tokens) && tokens[afterClose].Type == l.SYMBOL && tokens[afterClose].Content == "while" {
 					if afterClose+1 < len(tokens) && tokens[afterClose+1].Type == l.OPEN_PAREN {

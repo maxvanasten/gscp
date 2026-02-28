@@ -53,7 +53,7 @@
 === RUN   TestDiagnosticsUnexpectedCloseCurly
 --- PASS: TestDiagnosticsUnexpectedCloseCurly (0.00s)
 PASS
-ok  	github.com/maxvanasten/gscp/diagnostics	0.008s
+ok  	github.com/maxvanasten/gscp/diagnostics	0.015s
 === RUN   Test_Generate_VariableReference
 --- PASS: Test_Generate_VariableReference (0.00s)
 === RUN   Test_Generate_String
@@ -143,7 +143,7 @@ ok  	github.com/maxvanasten/gscp/diagnostics	0.008s
 === RUN   Test_Generate_SwitchStatement
 --- PASS: Test_Generate_SwitchStatement (0.00s)
 PASS
-ok  	github.com/maxvanasten/gscp/generator	0.010s
+ok  	github.com/maxvanasten/gscp/generator	0.011s
 === RUN   TestLexerSymbol
 --- PASS: TestLexerSymbol (0.00s)
 === RUN   TestLexerNumber
@@ -179,7 +179,7 @@ ok  	github.com/maxvanasten/gscp/generator	0.010s
 === RUN   TestLexerLogicalOperators
 --- PASS: TestLexerLogicalOperators (0.00s)
 PASS
-ok  	github.com/maxvanasten/gscp/lexer	0.006s
+ok  	github.com/maxvanasten/gscp/lexer	0.008s
 === RUN   Test_Variable_Reference
 --- PASS: Test_Variable_Reference (0.00s)
 === RUN   Test_String
@@ -247,5 +247,5 @@ ok  	github.com/maxvanasten/gscp/lexer	0.006s
 === RUN   Test_Function_Call_Complex_Args
 --- PASS: Test_Function_Call_Complex_Args (0.00s)
 PASS
-ok  	github.com/maxvanasten/gscp/parser	0.007s
+ok  	github.com/maxvanasten/gscp/parser	0.010s
 ```
