@@ -2,6 +2,9 @@
 
 gscp is a small lexer and parser for the .gsc scripting language used in older Call of Duty games. gscp takes raw .gsc code and turns it into an abstract syntax tree. You can find a small demo input and output file in `./demo`.
 
+### Projects using gscp
+[t6t: A code analysis tool for gsc](https://github.com/maxvanasten/t6t)
+
 ## Installation
 
 ### Download binary
@@ -12,22 +15,27 @@ gscp is a small lexer and parser for the .gsc scripting language used in older C
 #Clone the repo
 git clone https://github.com/maxvanasten/gscp
 #Build the parser
-cd ./gscp/ && go build
+cd ./gscp/
+go build
+# OPTIONAL: Move the binary to /usr/bin/ so it can be accessed from anywhere
+sudo mv ./gscp /usr/bin/gscp
 #Run the parser
-./gscp input.gsc
+./gscp -p input.gsc
+# Or if you installed it to /usr/bin:
+gscp -p input.gsc
 ```
 
 ## Usage
 ```bash
 
 # Parse GSC file into AST and output the result on STDOUT
-./gscp -p input_file.gsc
+gscp -p input_file.gsc
 # Generate GSC file from AST JSON
-./gscp -g input_ast.json
+gscp -g input_ast.json
 
 ```
 
-gscp outputs a JSON object on STDOUT containing both the AST and diagnostics. You can format the JSON nicely with `jq` and `bat`, for example: `./gscp -p input.gsc | jq | bat -l json` or `./gscp -p input.gsc | jq .ast`
+`gscp` outputs a JSON object on STDOUT containing both the AST and diagnostics. You can format the JSON nicely with `jq` and `bat`, for example: `gscp -p input.gsc | jq | bat -l json`
 
 ## Documentation
 
