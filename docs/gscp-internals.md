@@ -67,10 +67,12 @@ type Token struct {
   Col     int
   EndLine int
   EndCol  int
+  StartOffset int
+  EndOffset   int
 }
 ```
 
-Positions are 1-based and represent the start and end of the token in the input.
+Positions are 1-based and represent the start and end of the token in the input. Offsets are 0-based byte indices into the input and include the full token span.
 
 ### Token types
 
@@ -182,6 +184,9 @@ type Node struct {
   Type     string   `json:"type"`
   Data     NodeData `json:"data"`
   Children []Node   `json:"children,omitempty"`
+  Line     int      `json:"line"`
+  Col      int      `json:"col"`
+  Length   int      `json:"length"`
 }
 ```
 

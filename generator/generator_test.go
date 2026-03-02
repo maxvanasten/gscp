@@ -8,6 +8,24 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+type testNode struct {
+	Type     string
+	Data     p.NodeData
+	Children []testNode
+}
+
+func toParserNode(node testNode) p.Node {
+	children := make([]p.Node, len(node.Children))
+	for i, child := range node.Children {
+		children[i] = toParserNode(child)
+	}
+	return p.Node{Type: node.Type, Data: node.Data, Children: children}
+}
+
+func generate(node testNode) string {
+	return g.Generate(toParserNode(node))
+}
+
 func indentLines(lines ...string) string {
 	output := ""
 	for i, line := range lines {
@@ -20,360 +38,360 @@ func indentLines(lines ...string) string {
 }
 
 func Test_Generate_VariableReference(t *testing.T) {
-	input := p.Node{"variable_reference", p.NodeData{VarName: "test_var"}, []p.Node{}}
+	input := testNode{"variable_reference", p.NodeData{VarName: "test_var"}, []testNode{}}
 
 	target := "test_var"
 
-	result := g.Generate(input)
+	result := generate(input)
 	assert.Equal(t, target, result)
 }
 
 func Test_Generate_String(t *testing.T) {
-	input := p.Node{"string", p.NodeData{Content: "hello, world"}, []p.Node{}}
+	input := testNode{"string", p.NodeData{Content: "hello, world"}, []testNode{}}
 
 	target := "\"hello, world\""
 
-	result := g.Generate(input)
+	result := generate(input)
 	assert.Equal(t, target, result)
 }
 
 func Test_Generate_Boolean(t *testing.T) {
-	input := p.Node{"boolean", p.NodeData{Content: "true"}, []p.Node{}}
+	input := testNode{"boolean", p.NodeData{Content: "true"}, []testNode{}}
 
 	target := "true"
 
-	result := g.Generate(input)
+	result := generate(input)
 	assert.Equal(t, target, result)
 }
 
 func Test_Generate_Number(t *testing.T) {
-	input := p.Node{"number", p.NodeData{Content: "23"}, []p.Node{}}
+	input := testNode{"number", p.NodeData{Content: "23"}, []testNode{}}
 	target := "23"
 
-	result := g.Generate(input)
+	result := generate(input)
 	assert.Equal(t, target, result)
 }
 
 func Test_Generate_Simple_Expression(t *testing.T) {
-	input := p.Node{"expression", p.NodeData{Operator: "+"}, []p.Node{
-		{"lhs", p.NodeData{}, []p.Node{
-			{"string", p.NodeData{Content: "Hello, "}, []p.Node{}},
+	input := testNode{"expression", p.NodeData{Operator: "+"}, []testNode{
+		{"lhs", p.NodeData{}, []testNode{
+			{"string", p.NodeData{Content: "Hello, "}, []testNode{}},
 		}},
-		{"rhs", p.NodeData{}, []p.Node{
-			{"variable_reference", p.NodeData{VarName: "name"}, []p.Node{}},
+		{"rhs", p.NodeData{}, []testNode{
+			{"variable_reference", p.NodeData{VarName: "name"}, []testNode{}},
 		}},
 	}}
 	target := "\"Hello, \" + name"
 
-	result := g.Generate(input)
+	result := generate(input)
 	assert.Equal(t, target, result)
 }
 
 func Test_Generate_Complex_Expression(t *testing.T) {
-	input := p.Node{"expression", p.NodeData{Operator: "+"}, []p.Node{
-		{"lhs", p.NodeData{}, []p.Node{{"string", p.NodeData{Content: "Hello, "}, []p.Node{}}}},
-		{"rhs", p.NodeData{}, []p.Node{{"expression", p.NodeData{Operator: "+"}, []p.Node{
-			{"lhs", p.NodeData{}, []p.Node{{"variable_reference", p.NodeData{VarName: "name"}, []p.Node{}}}},
-			{"rhs", p.NodeData{}, []p.Node{{"expression", p.NodeData{Operator: "+"}, []p.Node{
-				{"lhs", p.NodeData{}, []p.Node{{"string", p.NodeData{Content: ", You are: "}, []p.Node{}}}},
-				{"rhs", p.NodeData{}, []p.Node{{"expression", p.NodeData{Operator: "+"}, []p.Node{
-					{"lhs", p.NodeData{}, []p.Node{{"number", p.NodeData{Content: "23"}, []p.Node{}}}},
-					{"rhs", p.NodeData{}, []p.Node{{"string", p.NodeData{Content: " years old."}, []p.Node{}}}},
+	input := testNode{"expression", p.NodeData{Operator: "+"}, []testNode{
+		{"lhs", p.NodeData{}, []testNode{{"string", p.NodeData{Content: "Hello, "}, []testNode{}}}},
+		{"rhs", p.NodeData{}, []testNode{{"expression", p.NodeData{Operator: "+"}, []testNode{
+			{"lhs", p.NodeData{}, []testNode{{"variable_reference", p.NodeData{VarName: "name"}, []testNode{}}}},
+			{"rhs", p.NodeData{}, []testNode{{"expression", p.NodeData{Operator: "+"}, []testNode{
+				{"lhs", p.NodeData{}, []testNode{{"string", p.NodeData{Content: ", You are: "}, []testNode{}}}},
+				{"rhs", p.NodeData{}, []testNode{{"expression", p.NodeData{Operator: "+"}, []testNode{
+					{"lhs", p.NodeData{}, []testNode{{"number", p.NodeData{Content: "23"}, []testNode{}}}},
+					{"rhs", p.NodeData{}, []testNode{{"string", p.NodeData{Content: " years old."}, []testNode{}}}},
 				}}}},
 			}}}},
 		}}}},
 	}}
 	target := "\"Hello, \" + name + \", You are: \" + 23 + \" years old.\""
 
-	result := g.Generate(input)
+	result := generate(input)
 	assert.Equal(t, target, result)
 }
 
 func Test_Generate_Assignment(t *testing.T) {
-	input := p.Node{"assignment", p.NodeData{VarName: "test"}, []p.Node{
-		{"string", p.NodeData{Content: "Hello, world!"}, []p.Node{}},
+	input := testNode{"assignment", p.NodeData{VarName: "test"}, []testNode{
+		{"string", p.NodeData{Content: "Hello, world!"}, []testNode{}},
 	}}
 	target := "test = \"Hello, world!\";"
 
-	result := g.Generate(input)
+	result := generate(input)
 	assert.Equal(t, target, result)
 }
 
 func Test_Generate_Unary_Expression(t *testing.T) {
-	input := p.Node{"unary_expression", p.NodeData{Operator: "!"}, []p.Node{
-		{"boolean", p.NodeData{Content: "true"}, []p.Node{}},
+	input := testNode{"unary_expression", p.NodeData{Operator: "!"}, []testNode{
+		{"boolean", p.NodeData{Content: "true"}, []testNode{}},
 	}}
 	target := "!true"
 
-	result := g.Generate(input)
+	result := generate(input)
 	assert.Equal(t, target, result)
 }
 
 func Test_Generate_Lhs(t *testing.T) {
-	input := p.Node{"lhs", p.NodeData{}, []p.Node{
-		{"variable_reference", p.NodeData{VarName: "x"}, []p.Node{}},
+	input := testNode{"lhs", p.NodeData{}, []testNode{
+		{"variable_reference", p.NodeData{VarName: "x"}, []testNode{}},
 	}}
 	target := "x"
 
-	result := g.Generate(input)
+	result := generate(input)
 	assert.Equal(t, target, result)
 }
 
 func Test_Generate_Rhs(t *testing.T) {
-	input := p.Node{"rhs", p.NodeData{}, []p.Node{
-		{"number", p.NodeData{Content: "1"}, []p.Node{}},
+	input := testNode{"rhs", p.NodeData{}, []testNode{
+		{"number", p.NodeData{Content: "1"}, []testNode{}},
 	}}
 	target := "1"
 
-	result := g.Generate(input)
+	result := generate(input)
 	assert.Equal(t, target, result)
 }
 
 func Test_Generate_Array_Literal(t *testing.T) {
-	input := p.Node{"assignment", p.NodeData{VarName: "x"}, []p.Node{
-		{"array_literal", p.NodeData{}, []p.Node{}},
+	input := testNode{"assignment", p.NodeData{VarName: "x"}, []testNode{
+		{"array_literal", p.NodeData{}, []testNode{}},
 	}}
 
 	target := "x = [];"
 
-	result := g.Generate(input)
+	result := generate(input)
 	assert.Equal(t, target, result)
 }
 
 func Test_Generate_Array_Literal_Multiple(t *testing.T) {
-	input := p.Node{"assignment", p.NodeData{VarName: "x"}, []p.Node{
-		{"array_literal", p.NodeData{}, []p.Node{
-			{"number", p.NodeData{Content: "1"}, []p.Node{}},
-			{"string", p.NodeData{Content: "a"}, []p.Node{}},
-			{"variable_reference", p.NodeData{VarName: "y"}, []p.Node{}},
+	input := testNode{"assignment", p.NodeData{VarName: "x"}, []testNode{
+		{"array_literal", p.NodeData{}, []testNode{
+			{"number", p.NodeData{Content: "1"}, []testNode{}},
+			{"string", p.NodeData{Content: "a"}, []testNode{}},
+			{"variable_reference", p.NodeData{VarName: "y"}, []testNode{}},
 		}},
 	}}
 	target := "x = [1, \"a\", y];"
 
-	result := g.Generate(input)
+	result := generate(input)
 	assert.Equal(t, target, result)
 }
 
 func Test_Generate_ArrayLiteral(t *testing.T) {
-	input := p.Node{"array_literal", p.NodeData{}, []p.Node{
-		{"number", p.NodeData{Content: "1"}, []p.Node{}},
-		{"string", p.NodeData{Content: "a"}, []p.Node{}},
-		{"variable_reference", p.NodeData{VarName: "y"}, []p.Node{}},
+	input := testNode{"array_literal", p.NodeData{}, []testNode{
+		{"number", p.NodeData{Content: "1"}, []testNode{}},
+		{"string", p.NodeData{Content: "a"}, []testNode{}},
+		{"variable_reference", p.NodeData{VarName: "y"}, []testNode{}},
 	}}
 	target := "[1, \"a\", y]"
 
-	result := g.Generate(input)
+	result := generate(input)
 	assert.Equal(t, target, result)
 }
 
 func Test_Generate_Array_Indexing(t *testing.T) {
-	input := p.Node{"variable_reference", p.NodeData{VarName: "arr", Index: "0"}, []p.Node{}}
+	input := testNode{"variable_reference", p.NodeData{VarName: "arr", Index: "0"}, []testNode{}}
 	target := "arr[0]"
 
-	result := g.Generate(input)
+	result := generate(input)
 	assert.Equal(t, target, result)
 }
 
 func Test_Generate_Array_Indexing_Assignment(t *testing.T) {
-	input := p.Node{"assignment", p.NodeData{VarName: "arr", Index: "1"}, []p.Node{
-		{"string", p.NodeData{Content: "x"}, []p.Node{}},
+	input := testNode{"assignment", p.NodeData{VarName: "arr", Index: "1"}, []testNode{
+		{"string", p.NodeData{Content: "x"}, []testNode{}},
 	}}
 	target := "arr[1] = \"x\";"
 
-	result := g.Generate(input)
+	result := generate(input)
 	assert.Equal(t, target, result)
 }
 
 func Test_Generate_IncludeStatement(t *testing.T) {
-	input := p.Node{"include_statement", p.NodeData{Path: "common_scripts\\utility"}, []p.Node{}}
+	input := testNode{"include_statement", p.NodeData{Path: "common_scripts\\utility"}, []testNode{}}
 
 	target := "#include common_scripts\\utility;"
 
-	result := g.Generate(input)
+	result := generate(input)
 	assert.Equal(t, target, result)
 }
 
 func Test_Generate_WaitStatement(t *testing.T) {
-	input := p.Node{"wait_statement", p.NodeData{Delay: "0.05"}, []p.Node{}}
+	input := testNode{"wait_statement", p.NodeData{Delay: "0.05"}, []testNode{}}
 
 	target := "wait 0.05;"
 
-	result := g.Generate(input)
+	result := generate(input)
 	assert.Equal(t, target, result)
 }
 
 func Test_Generate_BreakStatement(t *testing.T) {
-	input := p.Node{"break_statement", p.NodeData{}, []p.Node{}}
+	input := testNode{"break_statement", p.NodeData{}, []testNode{}}
 
 	target := "break;"
 
-	result := g.Generate(input)
+	result := generate(input)
 	assert.Equal(t, target, result)
 }
 
 func Test_Generate_ReturnStatement(t *testing.T) {
-	input := p.Node{"return_statement", p.NodeData{}, []p.Node{
-		{"string", p.NodeData{Content: "value"}, []p.Node{}},
+	input := testNode{"return_statement", p.NodeData{}, []testNode{
+		{"string", p.NodeData{Content: "value"}, []testNode{}},
 	}}
 
 	target := "return \"value\";"
 
-	result := g.Generate(input)
+	result := generate(input)
 	assert.Equal(t, target, result)
 }
 
 func Test_Generate_FunctionCall(t *testing.T) {
-	input := p.Node{"function_call", p.NodeData{FunctionName: "do_thing"}, []p.Node{}}
+	input := testNode{"function_call", p.NodeData{FunctionName: "do_thing"}, []testNode{}}
 
 	target := "do_thing();"
 
-	result := g.Generate(input)
+	result := generate(input)
 	assert.Equal(t, target, result)
 }
 
 func Test_Generate_FunctionCall_WithArgs(t *testing.T) {
-	input := p.Node{"function_call", p.NodeData{FunctionName: "do_thing"}, []p.Node{
-		{"variable_reference", p.NodeData{VarName: "a"}, []p.Node{}},
-		{"number", p.NodeData{Content: "1"}, []p.Node{}},
-		{"string", p.NodeData{Content: "x"}, []p.Node{}},
+	input := testNode{"function_call", p.NodeData{FunctionName: "do_thing"}, []testNode{
+		{"variable_reference", p.NodeData{VarName: "a"}, []testNode{}},
+		{"number", p.NodeData{Content: "1"}, []testNode{}},
+		{"string", p.NodeData{Content: "x"}, []testNode{}},
 	}}
 
 	target := "do_thing(a, 1, \"x\");"
 
-	result := g.Generate(input)
+	result := generate(input)
 	assert.Equal(t, target, result)
 }
 
 func Test_Generate_FunctionCall_Method(t *testing.T) {
-	input := p.Node{"function_call", p.NodeData{FunctionName: "do_thing", Method: "self"}, []p.Node{}}
+	input := testNode{"function_call", p.NodeData{FunctionName: "do_thing", Method: "self"}, []testNode{}}
 
 	target := "self do_thing();"
 
-	result := g.Generate(input)
+	result := generate(input)
 	assert.Equal(t, target, result)
 }
 
 func Test_Generate_FunctionCall_Thread(t *testing.T) {
-	input := p.Node{"function_call", p.NodeData{FunctionName: "do_thing", Thread: true}, []p.Node{}}
+	input := testNode{"function_call", p.NodeData{FunctionName: "do_thing", Thread: true}, []testNode{}}
 
 	target := "thread do_thing();"
 
-	result := g.Generate(input)
+	result := generate(input)
 	assert.Equal(t, target, result)
 }
 
 func Test_Generate_FunctionCall_MethodThread(t *testing.T) {
-	input := p.Node{"function_call", p.NodeData{FunctionName: "do_thing", Method: "self", Thread: true}, []p.Node{}}
+	input := testNode{"function_call", p.NodeData{FunctionName: "do_thing", Method: "self", Thread: true}, []testNode{}}
 
 	target := "self thread do_thing();"
 
-	result := g.Generate(input)
+	result := generate(input)
 	assert.Equal(t, target, result)
 }
 
 func Test_Generate_FunctionCall_Path(t *testing.T) {
-	input := p.Node{"function_call", p.NodeData{FunctionName: "specific_powerup_drop", Path: "maps\\mp\\zombies\\_zm_powerups"}, []p.Node{}}
+	input := testNode{"function_call", p.NodeData{FunctionName: "specific_powerup_drop", Path: "maps\\mp\\zombies\\_zm_powerups"}, []testNode{}}
 
 	target := "maps\\mp\\zombies\\_zm_powerups::specific_powerup_drop();"
 
-	result := g.Generate(input)
+	result := generate(input)
 	assert.Equal(t, target, result)
 }
 
 func Test_Generate_FunctionDeclaration(t *testing.T) {
-	input := p.Node{"function_declaration", p.NodeData{FunctionName: "init"}, []p.Node{
-		{"args", p.NodeData{}, []p.Node{
-			{"variable_reference", p.NodeData{VarName: "a"}, []p.Node{}},
-			{"variable_reference", p.NodeData{VarName: "b"}, []p.Node{}},
+	input := testNode{"function_declaration", p.NodeData{FunctionName: "init"}, []testNode{
+		{"args", p.NodeData{}, []testNode{
+			{"variable_reference", p.NodeData{VarName: "a"}, []testNode{}},
+			{"variable_reference", p.NodeData{VarName: "b"}, []testNode{}},
 		}},
-		{"scope", p.NodeData{}, []p.Node{
-			{"wait_statement", p.NodeData{Delay: "0.05"}, []p.Node{}},
+		{"scope", p.NodeData{}, []testNode{
+			{"wait_statement", p.NodeData{Delay: "0.05"}, []testNode{}},
 		}},
 	}}
 
 	target := "init(a, b)\n{\n" + indentLines("wait 0.05;") + "\n}"
 
-	result := g.Generate(input)
+	result := generate(input)
 	assert.Equal(t, target, result)
 }
 
 func Test_Generate_Args(t *testing.T) {
-	input := p.Node{"args", p.NodeData{}, []p.Node{
-		{"variable_reference", p.NodeData{VarName: "a"}, []p.Node{}},
-		{"variable_reference", p.NodeData{VarName: "b"}, []p.Node{}},
+	input := testNode{"args", p.NodeData{}, []testNode{
+		{"variable_reference", p.NodeData{VarName: "a"}, []testNode{}},
+		{"variable_reference", p.NodeData{VarName: "b"}, []testNode{}},
 	}}
 
 	target := "a, b"
 
-	result := g.Generate(input)
+	result := generate(input)
 	assert.Equal(t, target, result)
 }
 
 func Test_Generate_Scope(t *testing.T) {
-	input := p.Node{"scope", p.NodeData{}, []p.Node{
-		{"wait_statement", p.NodeData{Delay: "0.05"}, []p.Node{}},
-		{"break_statement", p.NodeData{}, []p.Node{}},
+	input := testNode{"scope", p.NodeData{}, []testNode{
+		{"wait_statement", p.NodeData{Delay: "0.05"}, []testNode{}},
+		{"break_statement", p.NodeData{}, []testNode{}},
 	}}
 
 	target := indentLines("wait 0.05;", "break;")
 
-	result := g.Generate(input)
+	result := generate(input)
 	assert.Equal(t, target, result)
 }
 
 func Test_Generate_VectorLiteral(t *testing.T) {
-	input := p.Node{"vector_literal", p.NodeData{}, []p.Node{
-		{"number", p.NodeData{Content: "0"}, []p.Node{}},
-		{"number", p.NodeData{Content: "1"}, []p.Node{}},
-		{"number", p.NodeData{Content: "2"}, []p.Node{}},
+	input := testNode{"vector_literal", p.NodeData{}, []testNode{
+		{"number", p.NodeData{Content: "0"}, []testNode{}},
+		{"number", p.NodeData{Content: "1"}, []testNode{}},
+		{"number", p.NodeData{Content: "2"}, []testNode{}},
 	}}
 
 	target := "(0, 1, 2)"
 
-	result := g.Generate(input)
+	result := generate(input)
 	assert.Equal(t, target, result)
 }
 
 func Test_Generate_ForInit(t *testing.T) {
-	input := p.Node{"for_init", p.NodeData{}, []p.Node{
-		{"assignment", p.NodeData{VarName: "i"}, []p.Node{
-			{"number", p.NodeData{Content: "0"}, []p.Node{}},
+	input := testNode{"for_init", p.NodeData{}, []testNode{
+		{"assignment", p.NodeData{VarName: "i"}, []testNode{
+			{"number", p.NodeData{Content: "0"}, []testNode{}},
 		}},
 	}}
 
 	target := "i = 0"
 
-	result := g.Generate(input)
+	result := generate(input)
 	assert.Equal(t, target, result)
 }
 
 func Test_Generate_ForCondition(t *testing.T) {
-	input := p.Node{"for_condition", p.NodeData{}, []p.Node{
-		{"expression", p.NodeData{Operator: "<"}, []p.Node{
-			{"lhs", p.NodeData{}, []p.Node{
-				{"variable_reference", p.NodeData{VarName: "i"}, []p.Node{}},
+	input := testNode{"for_condition", p.NodeData{}, []testNode{
+		{"expression", p.NodeData{Operator: "<"}, []testNode{
+			{"lhs", p.NodeData{}, []testNode{
+				{"variable_reference", p.NodeData{VarName: "i"}, []testNode{}},
 			}},
-			{"rhs", p.NodeData{}, []p.Node{
-				{"number", p.NodeData{Content: "10"}, []p.Node{}},
+			{"rhs", p.NodeData{}, []testNode{
+				{"number", p.NodeData{Content: "10"}, []testNode{}},
 			}},
 		}},
 	}}
 
 	target := "i < 10"
 
-	result := g.Generate(input)
+	result := generate(input)
 	assert.Equal(t, target, result)
 }
 
 func Test_Generate_ForPost(t *testing.T) {
-	input := p.Node{"for_post", p.NodeData{}, []p.Node{
-		{"assignment", p.NodeData{VarName: "i"}, []p.Node{
-			{"expression", p.NodeData{Operator: "+"}, []p.Node{
-				{"lhs", p.NodeData{}, []p.Node{
-					{"variable_reference", p.NodeData{VarName: "i"}, []p.Node{}},
+	input := testNode{"for_post", p.NodeData{}, []testNode{
+		{"assignment", p.NodeData{VarName: "i"}, []testNode{
+			{"expression", p.NodeData{Operator: "+"}, []testNode{
+				{"lhs", p.NodeData{}, []testNode{
+					{"variable_reference", p.NodeData{VarName: "i"}, []testNode{}},
 				}},
-				{"rhs", p.NodeData{}, []p.Node{
-					{"number", p.NodeData{Content: "1"}, []p.Node{}},
+				{"rhs", p.NodeData{}, []testNode{
+					{"number", p.NodeData{Content: "1"}, []testNode{}},
 				}},
 			}},
 		}},
@@ -381,172 +399,172 @@ func Test_Generate_ForPost(t *testing.T) {
 
 	target := "i = i + 1"
 
-	result := g.Generate(input)
+	result := generate(input)
 	assert.Equal(t, target, result)
 }
 
 func Test_Generate_ForLoop(t *testing.T) {
-	input := p.Node{"for_loop", p.NodeData{}, []p.Node{
-		{"for_init", p.NodeData{}, []p.Node{}},
-		{"for_condition", p.NodeData{}, []p.Node{}},
-		{"for_post", p.NodeData{}, []p.Node{}},
-		{"scope", p.NodeData{}, []p.Node{
-			{"wait_statement", p.NodeData{Delay: "0.05"}, []p.Node{}},
+	input := testNode{"for_loop", p.NodeData{}, []testNode{
+		{"for_init", p.NodeData{}, []testNode{}},
+		{"for_condition", p.NodeData{}, []testNode{}},
+		{"for_post", p.NodeData{}, []testNode{}},
+		{"scope", p.NodeData{}, []testNode{
+			{"wait_statement", p.NodeData{Delay: "0.05"}, []testNode{}},
 		}},
 	}}
 
 	target := "for ( ;; )\n{\n" + indentLines("wait 0.05;") + "\n}"
 
-	result := g.Generate(input)
+	result := generate(input)
 	assert.Equal(t, target, result)
 }
 
 func Test_Generate_Condition(t *testing.T) {
-	input := p.Node{"condition", p.NodeData{}, []p.Node{
-		{"variable_reference", p.NodeData{VarName: "cond"}, []p.Node{}},
+	input := testNode{"condition", p.NodeData{}, []testNode{
+		{"variable_reference", p.NodeData{VarName: "cond"}, []testNode{}},
 	}}
 
 	target := "cond"
 
-	result := g.Generate(input)
+	result := generate(input)
 	assert.Equal(t, target, result)
 }
 
 func Test_Generate_IfStatement(t *testing.T) {
-	input := p.Node{"if_statement", p.NodeData{}, []p.Node{
-		{"condition", p.NodeData{}, []p.Node{
-			{"variable_reference", p.NodeData{VarName: "cond"}, []p.Node{}},
+	input := testNode{"if_statement", p.NodeData{}, []testNode{
+		{"condition", p.NodeData{}, []testNode{
+			{"variable_reference", p.NodeData{VarName: "cond"}, []testNode{}},
 		}},
-		{"scope", p.NodeData{}, []p.Node{
-			{"wait_statement", p.NodeData{Delay: "0.05"}, []p.Node{}},
+		{"scope", p.NodeData{}, []testNode{
+			{"wait_statement", p.NodeData{Delay: "0.05"}, []testNode{}},
 		}},
 	}}
 
 	target := "if (cond)\n{\n" + indentLines("wait 0.05;") + "\n}"
 
-	result := g.Generate(input)
+	result := generate(input)
 	assert.Equal(t, target, result)
 }
 
 func Test_Generate_ElseClause(t *testing.T) {
-	input := p.Node{"else_clause", p.NodeData{}, []p.Node{
-		{"scope", p.NodeData{}, []p.Node{
-			{"wait_statement", p.NodeData{Delay: "0.05"}, []p.Node{}},
+	input := testNode{"else_clause", p.NodeData{}, []testNode{
+		{"scope", p.NodeData{}, []testNode{
+			{"wait_statement", p.NodeData{Delay: "0.05"}, []testNode{}},
 		}},
 	}}
 
 	target := "else\n{\n" + indentLines("wait 0.05;") + "\n}"
 
-	result := g.Generate(input)
+	result := generate(input)
 	assert.Equal(t, target, result)
 }
 
 func Test_Generate_WhileLoop(t *testing.T) {
-	input := p.Node{"while_loop", p.NodeData{}, []p.Node{
-		{"condition", p.NodeData{}, []p.Node{
-			{"boolean", p.NodeData{Content: "true"}, []p.Node{}},
+	input := testNode{"while_loop", p.NodeData{}, []testNode{
+		{"condition", p.NodeData{}, []testNode{
+			{"boolean", p.NodeData{Content: "true"}, []testNode{}},
 		}},
-		{"scope", p.NodeData{}, []p.Node{
-			{"wait_statement", p.NodeData{Delay: "0.05"}, []p.Node{}},
+		{"scope", p.NodeData{}, []testNode{
+			{"wait_statement", p.NodeData{Delay: "0.05"}, []testNode{}},
 		}},
 	}}
 
 	target := "while (true)\n{\n" + indentLines("wait 0.05;") + "\n}"
 
-	result := g.Generate(input)
+	result := generate(input)
 	assert.Equal(t, target, result)
 }
 
 func Test_Generate_ForeachVars(t *testing.T) {
-	input := p.Node{"foreach_vars", p.NodeData{}, []p.Node{
-		{"variable_reference", p.NodeData{VarName: "item"}, []p.Node{}},
+	input := testNode{"foreach_vars", p.NodeData{}, []testNode{
+		{"variable_reference", p.NodeData{VarName: "item"}, []testNode{}},
 	}}
 
 	target := "item"
 
-	result := g.Generate(input)
+	result := generate(input)
 	assert.Equal(t, target, result)
 }
 
 func Test_Generate_ForeachIter(t *testing.T) {
-	input := p.Node{"foreach_iter", p.NodeData{}, []p.Node{
-		{"variable_reference", p.NodeData{VarName: "items"}, []p.Node{}},
+	input := testNode{"foreach_iter", p.NodeData{}, []testNode{
+		{"variable_reference", p.NodeData{VarName: "items"}, []testNode{}},
 	}}
 
 	target := "items"
 
-	result := g.Generate(input)
+	result := generate(input)
 	assert.Equal(t, target, result)
 }
 
 func Test_Generate_ForeachLoop(t *testing.T) {
-	input := p.Node{"foreach_loop", p.NodeData{}, []p.Node{
-		{"foreach_vars", p.NodeData{}, []p.Node{
-			{"variable_reference", p.NodeData{VarName: "item"}, []p.Node{}},
+	input := testNode{"foreach_loop", p.NodeData{}, []testNode{
+		{"foreach_vars", p.NodeData{}, []testNode{
+			{"variable_reference", p.NodeData{VarName: "item"}, []testNode{}},
 		}},
-		{"foreach_iter", p.NodeData{}, []p.Node{
-			{"variable_reference", p.NodeData{VarName: "items"}, []p.Node{}},
+		{"foreach_iter", p.NodeData{}, []testNode{
+			{"variable_reference", p.NodeData{VarName: "items"}, []testNode{}},
 		}},
-		{"scope", p.NodeData{}, []p.Node{
-			{"wait_statement", p.NodeData{Delay: "0.05"}, []p.Node{}},
+		{"scope", p.NodeData{}, []testNode{
+			{"wait_statement", p.NodeData{Delay: "0.05"}, []testNode{}},
 		}},
 	}}
 
 	target := "foreach (item in items)\n{\n" + indentLines("wait 0.05;") + "\n}"
 
-	result := g.Generate(input)
+	result := generate(input)
 	assert.Equal(t, target, result)
 }
 
 func Test_Generate_SwitchExpr(t *testing.T) {
-	input := p.Node{"switch_expr", p.NodeData{}, []p.Node{
-		{"variable_reference", p.NodeData{VarName: "x"}, []p.Node{}},
+	input := testNode{"switch_expr", p.NodeData{}, []testNode{
+		{"variable_reference", p.NodeData{VarName: "x"}, []testNode{}},
 	}}
 
 	target := "x"
 
-	result := g.Generate(input)
+	result := generate(input)
 	assert.Equal(t, target, result)
 }
 
 func Test_Generate_CaseClause(t *testing.T) {
-	input := p.Node{"case_clause", p.NodeData{}, []p.Node{
-		{"string", p.NodeData{Content: "a"}, []p.Node{}},
+	input := testNode{"case_clause", p.NodeData{}, []testNode{
+		{"string", p.NodeData{Content: "a"}, []testNode{}},
 	}}
 
 	target := "case \"a\":"
 
-	result := g.Generate(input)
+	result := generate(input)
 	assert.Equal(t, target, result)
 }
 
 func Test_Generate_DefaultClause(t *testing.T) {
-	input := p.Node{"default_clause", p.NodeData{}, []p.Node{}}
+	input := testNode{"default_clause", p.NodeData{}, []testNode{}}
 
 	target := "default:"
 
-	result := g.Generate(input)
+	result := generate(input)
 	assert.Equal(t, target, result)
 }
 
 func Test_Generate_SwitchStatement(t *testing.T) {
-	input := p.Node{"switch_statement", p.NodeData{}, []p.Node{
-		{"switch_expr", p.NodeData{}, []p.Node{
-			{"variable_reference", p.NodeData{VarName: "x"}, []p.Node{}},
+	input := testNode{"switch_statement", p.NodeData{}, []testNode{
+		{"switch_expr", p.NodeData{}, []testNode{
+			{"variable_reference", p.NodeData{VarName: "x"}, []testNode{}},
 		}},
-		{"scope", p.NodeData{}, []p.Node{
-			{"case_clause", p.NodeData{}, []p.Node{
-				{"string", p.NodeData{Content: "a"}, []p.Node{}},
+		{"scope", p.NodeData{}, []testNode{
+			{"case_clause", p.NodeData{}, []testNode{
+				{"string", p.NodeData{Content: "a"}, []testNode{}},
 			}},
-			{"wait_statement", p.NodeData{Delay: "0.05"}, []p.Node{}},
-			{"break_statement", p.NodeData{}, []p.Node{}},
-			{"default_clause", p.NodeData{}, []p.Node{}},
+			{"wait_statement", p.NodeData{Delay: "0.05"}, []testNode{}},
+			{"break_statement", p.NodeData{}, []testNode{}},
+			{"default_clause", p.NodeData{}, []testNode{}},
 		}},
 	}}
 
 	inner := indentLines("case \"a\":", g.Indent+"wait 0.05;", g.Indent+"break;", "default:")
 	target := "switch(x) {\n" + inner + "\n}"
 
-	result := g.Generate(input)
+	result := generate(input)
 	assert.Equal(t, target, result)
 }

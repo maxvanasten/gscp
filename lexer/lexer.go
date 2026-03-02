@@ -74,12 +74,14 @@ func (t TokenType) ToString() string {
 }
 
 type Token struct {
-	Type    TokenType
-	Content string
-	Line    int
-	Col     int
-	EndLine int
-	EndCol  int
+	Type        TokenType
+	Content     string
+	Line        int
+	Col         int
+	EndLine     int
+	EndCol      int
+	StartOffset int
+	EndOffset   int
 }
 
 type Lexer struct {
@@ -90,12 +92,13 @@ type Lexer struct {
 	col         int
 	bufferLine  int
 	bufferCol   int
+	bufferIndex int
 	tokens      []Token
 	diagnostics []d.Diagnostic
 }
 
-func (l *Lexer) emitToken(tokenType TokenType, content string, startLine int, startCol int, endLine int, endCol int) {
-	l.tokens = append(l.tokens, Token{Type: tokenType, Content: content, Line: startLine, Col: startCol, EndLine: endLine, EndCol: endCol})
+func (l *Lexer) emitToken(tokenType TokenType, content string, startLine int, startCol int, endLine int, endCol int, startOffset int, endOffset int) {
+	l.tokens = append(l.tokens, Token{Type: tokenType, Content: content, Line: startLine, Col: startCol, EndLine: endLine, EndCol: endCol, StartOffset: startOffset, EndOffset: endOffset})
 }
 
 func isSymbolStart(buffer []byte) bool {
@@ -193,13 +196,15 @@ func (l *Lexer) HandleBuffer() {
 		startCol := l.bufferCol
 		endLine := l.bufferLine
 		endCol := l.bufferCol + len(l.buffer) - 1
+		startOffset := l.bufferIndex
+		endOffset := l.bufferIndex + len(l.buffer) - 1
 
 		if is_number {
-			l.tokens = append(l.tokens, Token{Type: NUMBER, Content: string(l.buffer), Line: startLine, Col: startCol, EndLine: endLine, EndCol: endCol})
+			l.tokens = append(l.tokens, Token{Type: NUMBER, Content: string(l.buffer), Line: startLine, Col: startCol, EndLine: endLine, EndCol: endCol, StartOffset: startOffset, EndOffset: endOffset})
 		} else {
 			// Check if symbol is valid
 			if isSymbolStart(l.buffer) {
-				l.tokens = append(l.tokens, Token{Type: SYMBOL, Content: string(l.buffer), Line: startLine, Col: startCol, EndLine: endLine, EndCol: endCol})
+				l.tokens = append(l.tokens, Token{Type: SYMBOL, Content: string(l.buffer), Line: startLine, Col: startCol, EndLine: endLine, EndCol: endCol, StartOffset: startOffset, EndOffset: endOffset})
 			} else {
 				l.diagnostics = append(l.diagnostics, d.New("invalid token", startLine, startCol, endLine, endCol, "error"))
 			}
@@ -210,63 +215,65 @@ func (l *Lexer) HandleBuffer() {
 
 func (l *Lexer) handleOperatorToken(c byte, startLine int, startCol int) int {
 	endCol := startCol
+	startOffset := l.index
+	endOffset := l.index
 	if l.index+1 < len(l.input) {
 		next := l.input[l.index+1]
 		switch c {
 		case '+', '-':
 			if next == c {
 				l.HandleBuffer()
-				l.emitToken(OPERATOR, string([]byte{c, c}), startLine, startCol, startLine, startCol+1)
+				l.emitToken(OPERATOR, string([]byte{c, c}), startLine, startCol, startLine, startCol+1, startOffset, startOffset+1)
 				return 2
 			}
 			if next == '=' {
 				l.HandleBuffer()
-				l.emitToken(ASSIGNMENT, string([]byte{c, '='}), startLine, startCol, startLine, startCol+1)
+				l.emitToken(ASSIGNMENT, string([]byte{c, '='}), startLine, startCol, startLine, startCol+1, startOffset, startOffset+1)
 				return 2
 			}
 		case '*', '/', '%', '?', '^', '~':
 			if next == '=' {
 				l.HandleBuffer()
-				l.emitToken(ASSIGNMENT, string([]byte{c, '='}), startLine, startCol, startLine, startCol+1)
+				l.emitToken(ASSIGNMENT, string([]byte{c, '='}), startLine, startCol, startLine, startCol+1, startOffset, startOffset+1)
 				return 2
 			}
 		case '<', '>':
 			if next == c {
 				l.HandleBuffer()
-				l.emitToken(OPERATOR, string([]byte{c, c}), startLine, startCol, startLine, startCol+1)
+				l.emitToken(OPERATOR, string([]byte{c, c}), startLine, startCol, startLine, startCol+1, startOffset, startOffset+1)
 				return 2
 			}
 			if next == '=' {
 				l.HandleBuffer()
-				l.emitToken(OPERATOR, string([]byte{c, '='}), startLine, startCol, startLine, startCol+1)
+				l.emitToken(OPERATOR, string([]byte{c, '='}), startLine, startCol, startLine, startCol+1, startOffset, startOffset+1)
 				return 2
 			}
 		case '&', '|':
 			if next == '=' {
 				l.HandleBuffer()
-				l.emitToken(ASSIGNMENT, string([]byte{c, '='}), startLine, startCol, startLine, startCol+1)
+				l.emitToken(ASSIGNMENT, string([]byte{c, '='}), startLine, startCol, startLine, startCol+1, startOffset, startOffset+1)
 				return 2
 			}
 			if next == c {
 				l.HandleBuffer()
-				l.emitToken(OPERATOR, string([]byte{c, c}), startLine, startCol, startLine, startCol+1)
+				l.emitToken(OPERATOR, string([]byte{c, c}), startLine, startCol, startLine, startCol+1, startOffset, startOffset+1)
 				return 2
 			}
 		case '=':
 			if next == '=' {
 				l.HandleBuffer()
-				l.emitToken(OPERATOR, "==", startLine, startCol, startLine, startCol+1)
+				l.emitToken(OPERATOR, "==", startLine, startCol, startLine, startCol+1, startOffset, startOffset+1)
 				return 2
 			}
 		case '!':
 			if next == '=' {
 				l.HandleBuffer()
-				l.emitToken(OPERATOR, "!=", startLine, startCol, startLine, startCol+1)
+				l.emitToken(OPERATOR, "!=", startLine, startCol, startLine, startCol+1, startOffset, startOffset+1)
 				return 2
 			}
 			if next == '!' {
 				l.HandleBuffer()
-				l.emitToken(OPERATOR, "!!", startLine, startCol, startLine, startCol+1)
+				l.emitToken(OPERATOR, "!!", startLine, startCol, startLine, startCol+1, startOffset, startOffset+1)
 				return 2
 			}
 		}
@@ -274,10 +281,10 @@ func (l *Lexer) handleOperatorToken(c byte, startLine int, startCol int) int {
 
 	l.HandleBuffer()
 	if c == '=' {
-		l.emitToken(ASSIGNMENT, "=", startLine, startCol, startLine, endCol)
+		l.emitToken(ASSIGNMENT, "=", startLine, startCol, startLine, endCol, startOffset, endOffset)
 		return 1
 	}
-	l.emitToken(OPERATOR, strings.TrimSpace(string(c)), startLine, startCol, startLine, endCol)
+	l.emitToken(OPERATOR, strings.TrimSpace(string(c)), startLine, startCol, startLine, endCol, startOffset, endOffset)
 	return 1
 }
 
@@ -350,25 +357,27 @@ func (l *Lexer) HandleCharacter(c byte) int {
 		if len(l.buffer) == 0 {
 			l.bufferLine = l.line
 			l.bufferCol = l.col
+			l.bufferIndex = l.index
 		}
 		l.buffer = append(l.buffer, c)
 		return 1
 	case '\n', '(', '[', '{', ')', ']', '}', ';', ',':
 		l.HandleBuffer()
 		token_type := TokenTypeFromChar(c)
-		l.tokens = append(l.tokens, Token{Type: token_type, Content: strings.TrimSpace(string(c)), Line: startLine, Col: startCol, EndLine: startLine, EndCol: startCol})
+		l.tokens = append(l.tokens, Token{Type: token_type, Content: strings.TrimSpace(string(c)), Line: startLine, Col: startCol, EndLine: startLine, EndCol: startCol, StartOffset: l.index, EndOffset: l.index})
 		return 1
 	case ':':
 		if l.index+1 < len(l.input) && l.input[l.index+1] == ':' {
 			if len(l.buffer) == 0 {
 				l.bufferLine = l.line
 				l.bufferCol = l.col
+				l.bufferIndex = l.index
 			}
 			l.buffer = append(l.buffer, ':', ':')
 			return 2
 		}
 		l.HandleBuffer()
-		l.tokens = append(l.tokens, Token{Type: COLON, Content: ":", Line: startLine, Col: startCol, EndLine: startLine, EndCol: startCol})
+		l.tokens = append(l.tokens, Token{Type: COLON, Content: ":", Line: startLine, Col: startCol, EndLine: startLine, EndCol: startCol, StartOffset: l.index, EndOffset: l.index})
 		return 1
 	case ' ', '\t':
 		l.HandleBuffer()
@@ -393,7 +402,7 @@ func (l *Lexer) HandleCharacter(c byte) int {
 			if c == '"' {
 				string_content := l.input[l.index+1 : i]
 				endCol := startCol + (i - l.index)
-				l.tokens = append(l.tokens, Token{Type: STRING, Content: string(string_content), Line: startLine, Col: startCol, EndLine: startLine, EndCol: endCol})
+				l.tokens = append(l.tokens, Token{Type: STRING, Content: string(string_content), Line: startLine, Col: startCol, EndLine: startLine, EndCol: endCol, StartOffset: l.index, EndOffset: i})
 				return i - l.index + 1
 			}
 			i++
@@ -410,6 +419,7 @@ func (l *Lexer) HandleCharacter(c byte) int {
 		if len(l.buffer) == 0 {
 			l.bufferLine = l.line
 			l.bufferCol = l.col
+			l.bufferIndex = l.index
 		}
 		l.buffer = append(l.buffer, c)
 		return 1
