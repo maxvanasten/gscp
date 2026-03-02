@@ -488,9 +488,3 @@ func Parse(tokens []l.Token) ([]Node, []d.Diagnostic) {
 
 	return output, diagnostics
 }
-
-func ToSemanticTokens(nodes []Node) []int {
-	semantic_tokens := []int{5}
-
-	return semantic_tokens
-}
