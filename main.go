@@ -15,6 +15,7 @@ import (
 
 type ParseOutput struct {
 	AST         []parser.Node            `json:"ast"`
+	Tokens      []lexer.Token            `json:"tokens"`
 	Diagnostics []diagnostics.Diagnostic `json:"diagnostics"`
 }
 
@@ -41,6 +42,7 @@ func main() {
 		ast, parseDiagnostics := parser.Parse(tokens)
 		output := ParseOutput{
 			AST:         ast,
+			Tokens:      tokens,
 			Diagnostics: append(lexerDiagnostics, parseDiagnostics...),
 		}
 		if err := json.NewEncoder(os.Stdout).Encode(output); err != nil {
