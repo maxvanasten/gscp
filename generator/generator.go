@@ -49,6 +49,18 @@ func indentMultiline(value string, prefix string) string {
 	return strings.Join(lines, "\n")
 }
 
+func formatBlock(header string, scope p.Node) string {
+	output := strings.Builder{}
+	output.WriteString(header)
+	output.WriteString("\n{")
+	if scopeBody := Generate(scope); scopeBody != "" {
+		output.WriteString("\n")
+		output.WriteString(scopeBody)
+	}
+	output.WriteString("\n}")
+	return output.String()
+}
+
 func Generate(node p.Node) string {
 	output := strings.Builder{}
 
@@ -141,20 +153,19 @@ func Generate(node p.Node) string {
 		output.WriteString(joinInlineChildren(node.Children, ", "))
 		output.WriteString(");")
 	case "function_declaration":
-		output.WriteString(node.Data.FunctionName)
-		output.WriteString("(")
+		header := strings.Builder{}
+		header.WriteString(node.Data.FunctionName)
+		header.WriteString("(")
 		if len(node.Children) > 0 {
-			output.WriteString(joinInlineChildren(node.Children[0].Children, ", "))
+			header.WriteString(joinInlineChildren(node.Children[0].Children, ", "))
 		}
-		output.WriteString(")\n{")
+		header.WriteString(")")
 		if len(node.Children) > 1 {
-			scopeBody := Generate(node.Children[1])
-			if scopeBody != "" {
-				output.WriteString("\n")
-				output.WriteString(scopeBody)
-			}
+			output.WriteString(formatBlock(header.String(), node.Children[1]))
+		} else {
+			output.WriteString(header.String())
+			output.WriteString("\n{\n}")
 		}
-		output.WriteString("\n}")
 	case "args":
 		output.WriteString(joinInlineChildren(node.Children, ", "))
 	case "scope":
@@ -184,33 +195,32 @@ func Generate(node p.Node) string {
 		if len(node.Children) > 2 {
 			post = Generate(node.Children[2])
 		}
+		header := strings.Builder{}
 		if init == "" && cond == "" && post == "" {
-			output.WriteString("for ( ;; )\n{")
+			header.WriteString("for ( ;; )")
 		} else {
-			output.WriteString("for (")
+			header.WriteString("for (")
 			if init == "" {
-				output.WriteString(" ")
+				header.WriteString(" ")
 			} else {
-				output.WriteString(init)
+				header.WriteString(init)
 			}
-			output.WriteString("; ")
+			header.WriteString("; ")
 			if cond != "" {
-				output.WriteString(cond)
+				header.WriteString(cond)
 			}
-			output.WriteString("; ")
+			header.WriteString("; ")
 			if post != "" {
-				output.WriteString(post)
+				header.WriteString(post)
 			}
-			output.WriteString(")\n{")
+			header.WriteString(")")
 		}
 		if len(node.Children) > 3 {
-			scopeBody := Generate(node.Children[3])
-			if scopeBody != "" {
-				output.WriteString("\n")
-				output.WriteString(scopeBody)
-			}
+			output.WriteString(formatBlock(header.String(), node.Children[3]))
+		} else {
+			output.WriteString(header.String())
+			output.WriteString("\n{\n}")
 		}
-		output.WriteString("\n}")
 	case "condition":
 		if len(node.Children) > 0 {
 			output.WriteString(stripTrailingSemicolon(Generate(node.Children[0])))
@@ -220,43 +230,31 @@ func Generate(node p.Node) string {
 		if len(node.Children) > 0 {
 			cond = Generate(node.Children[0])
 		}
-		output.WriteString("if (")
-		output.WriteString(cond)
-		output.WriteString(")\n{")
+		header := "if (" + cond + ")"
 		if len(node.Children) > 1 {
-			scopeBody := Generate(node.Children[1])
-			if scopeBody != "" {
-				output.WriteString("\n")
-				output.WriteString(scopeBody)
-			}
+			output.WriteString(formatBlock(header, node.Children[1]))
+		} else {
+			output.WriteString(header)
+			output.WriteString("\n{\n}")
 		}
-		output.WriteString("\n}")
 	case "else_clause":
-		output.WriteString("else\n{")
 		if len(node.Children) > 0 {
-			scopeBody := Generate(node.Children[0])
-			if scopeBody != "" {
-				output.WriteString("\n")
-				output.WriteString(scopeBody)
-			}
+			output.WriteString(formatBlock("else", node.Children[0]))
+		} else {
+			output.WriteString("else\n{\n}")
 		}
-		output.WriteString("\n}")
 	case "while_loop":
 		cond := ""
 		if len(node.Children) > 0 {
 			cond = Generate(node.Children[0])
 		}
-		output.WriteString("while (")
-		output.WriteString(cond)
-		output.WriteString(")\n{")
+		header := "while (" + cond + ")"
 		if len(node.Children) > 1 {
-			scopeBody := Generate(node.Children[1])
-			if scopeBody != "" {
-				output.WriteString("\n")
-				output.WriteString(scopeBody)
-			}
+			output.WriteString(formatBlock(header, node.Children[1]))
+		} else {
+			output.WriteString(header)
+			output.WriteString("\n{\n}")
 		}
-		output.WriteString("\n}")
 	case "foreach_vars", "foreach_iter":
 		output.WriteString(joinInlineChildren(node.Children, ", "))
 	case "foreach_loop":
@@ -268,19 +266,13 @@ func Generate(node p.Node) string {
 		if len(node.Children) > 1 {
 			iter = Generate(node.Children[1])
 		}
-		output.WriteString("foreach (")
-		output.WriteString(vars)
-		output.WriteString(" in ")
-		output.WriteString(iter)
-		output.WriteString(")\n{")
+		header := "foreach (" + vars + " in " + iter + ")"
 		if len(node.Children) > 2 {
-			scopeBody := Generate(node.Children[2])
-			if scopeBody != "" {
-				output.WriteString("\n")
-				output.WriteString(scopeBody)
-			}
+			output.WriteString(formatBlock(header, node.Children[2]))
+		} else {
+			output.WriteString(header)
+			output.WriteString("\n{\n}")
 		}
-		output.WriteString("\n}")
 	case "switch_expr":
 		if len(node.Children) > 0 {
 			output.WriteString(stripTrailingSemicolon(Generate(node.Children[0])))

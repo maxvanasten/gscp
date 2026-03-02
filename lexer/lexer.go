@@ -73,6 +73,30 @@ func (t TokenType) ToString() string {
 	}
 }
 
+var twoCharTokens = map[string]TokenType{
+	"++": OPERATOR,
+	"--": OPERATOR,
+	"==": OPERATOR,
+	"!=": OPERATOR,
+	"<=": OPERATOR,
+	">=": OPERATOR,
+	"&&": OPERATOR,
+	"||": OPERATOR,
+	"!!": OPERATOR,
+	"<<": OPERATOR,
+	">>": OPERATOR,
+	"+=": ASSIGNMENT,
+	"-=": ASSIGNMENT,
+	"*=": ASSIGNMENT,
+	"/=": ASSIGNMENT,
+	"%=": ASSIGNMENT,
+	"&=": ASSIGNMENT,
+	"|=": ASSIGNMENT,
+	"?=": ASSIGNMENT,
+	"^=": ASSIGNMENT,
+	"~=": ASSIGNMENT,
+}
+
 type Token struct {
 	Type        TokenType
 	Content     string
@@ -213,78 +237,81 @@ func (l *Lexer) HandleBuffer() {
 	l.buffer = []byte{}
 }
 
+func (l *Lexer) consumeLineComment(start int) int {
+	commentEnd := bytes.IndexByte(l.input[start:], '\n')
+	if commentEnd < 0 {
+		return len(l.input) - l.index
+	}
+	return commentEnd + (start - l.index)
+}
+
+func (l *Lexer) consumeBlockComment(startLine int, startCol int) int {
+	depth := 1
+	i := l.index + 2
+	for i < len(l.input)-1 {
+		if l.input[i] == '/' && l.input[i+1] == '#' {
+			depth++
+			i += 2
+			continue
+		}
+		if l.input[i] == '#' && l.input[i+1] == '/' {
+			depth--
+			i += 2
+			if depth == 0 {
+				return i - l.index
+			}
+			continue
+		}
+		i++
+	}
+	l.diagnostics = append(l.diagnostics, d.New("unterminated block comment", startLine, startCol, startLine, startCol, "error"))
+	return len(l.input) - l.index
+}
+
+func (l *Lexer) consumeString(startLine int, startCol int) int {
+	i := l.index + 1
+	escaped := false
+	for i < len(l.input) {
+		c := l.input[i]
+		if escaped {
+			escaped = false
+			i++
+			continue
+		}
+		if c == '\\' {
+			escaped = true
+			i++
+			continue
+		}
+		if c == '"' {
+			stringContent := l.input[l.index+1 : i]
+			endCol := startCol + (i - l.index)
+			l.tokens = append(l.tokens, Token{Type: STRING, Content: string(stringContent), Line: startLine, Col: startCol, EndLine: startLine, EndCol: endCol, StartOffset: l.index, EndOffset: i})
+			return i - l.index + 1
+		}
+		i++
+	}
+	l.diagnostics = append(l.diagnostics, d.New("unterminated string literal", startLine, startCol, startLine, startCol, "error"))
+	return len(l.input) - l.index
+}
+
 func (l *Lexer) handleOperatorToken(c byte, startLine int, startCol int) int {
-	endCol := startCol
 	startOffset := l.index
-	endOffset := l.index
 	if l.index+1 < len(l.input) {
 		next := l.input[l.index+1]
-		switch c {
-		case '+', '-':
-			if next == c {
-				l.HandleBuffer()
-				l.emitToken(OPERATOR, string([]byte{c, c}), startLine, startCol, startLine, startCol+1, startOffset, startOffset+1)
-				return 2
-			}
-			if next == '=' {
-				l.HandleBuffer()
-				l.emitToken(ASSIGNMENT, string([]byte{c, '='}), startLine, startCol, startLine, startCol+1, startOffset, startOffset+1)
-				return 2
-			}
-		case '*', '/', '%', '?', '^', '~':
-			if next == '=' {
-				l.HandleBuffer()
-				l.emitToken(ASSIGNMENT, string([]byte{c, '='}), startLine, startCol, startLine, startCol+1, startOffset, startOffset+1)
-				return 2
-			}
-		case '<', '>':
-			if next == c {
-				l.HandleBuffer()
-				l.emitToken(OPERATOR, string([]byte{c, c}), startLine, startCol, startLine, startCol+1, startOffset, startOffset+1)
-				return 2
-			}
-			if next == '=' {
-				l.HandleBuffer()
-				l.emitToken(OPERATOR, string([]byte{c, '='}), startLine, startCol, startLine, startCol+1, startOffset, startOffset+1)
-				return 2
-			}
-		case '&', '|':
-			if next == '=' {
-				l.HandleBuffer()
-				l.emitToken(ASSIGNMENT, string([]byte{c, '='}), startLine, startCol, startLine, startCol+1, startOffset, startOffset+1)
-				return 2
-			}
-			if next == c {
-				l.HandleBuffer()
-				l.emitToken(OPERATOR, string([]byte{c, c}), startLine, startCol, startLine, startCol+1, startOffset, startOffset+1)
-				return 2
-			}
-		case '=':
-			if next == '=' {
-				l.HandleBuffer()
-				l.emitToken(OPERATOR, "==", startLine, startCol, startLine, startCol+1, startOffset, startOffset+1)
-				return 2
-			}
-		case '!':
-			if next == '=' {
-				l.HandleBuffer()
-				l.emitToken(OPERATOR, "!=", startLine, startCol, startLine, startCol+1, startOffset, startOffset+1)
-				return 2
-			}
-			if next == '!' {
-				l.HandleBuffer()
-				l.emitToken(OPERATOR, "!!", startLine, startCol, startLine, startCol+1, startOffset, startOffset+1)
-				return 2
-			}
+		if tokenType, ok := twoCharTokens[string([]byte{c, next})]; ok {
+			l.HandleBuffer()
+			l.emitToken(tokenType, string([]byte{c, next}), startLine, startCol, startLine, startCol+1, startOffset, startOffset+1)
+			return 2
 		}
 	}
 
 	l.HandleBuffer()
 	if c == '=' {
-		l.emitToken(ASSIGNMENT, "=", startLine, startCol, startLine, endCol, startOffset, endOffset)
+		l.emitToken(ASSIGNMENT, "=", startLine, startCol, startLine, startCol, startOffset, startOffset)
 		return 1
 	}
-	l.emitToken(OPERATOR, strings.TrimSpace(string(c)), startLine, startCol, startLine, endCol, startOffset, endOffset)
+	l.emitToken(OPERATOR, strings.TrimSpace(string(c)), startLine, startCol, startLine, startCol, startOffset, startOffset)
 	return 1
 }
 
@@ -310,49 +337,18 @@ func (l *Lexer) HandleCharacter(c byte) int {
 			next := l.input[l.index+1]
 			if next == '/' {
 				l.HandleBuffer()
-				commentEnd := bytes.IndexByte(l.input[l.index+2:], '\n')
-				if commentEnd < 0 {
-					return len(l.input) - l.index
-				}
-				return commentEnd + 2
+				return l.consumeLineComment(l.index + 2)
 			}
 			if next == '#' {
 				l.HandleBuffer()
-				depth := 1
-				i := l.index + 2
-				for i < len(l.input)-1 {
-					if l.input[i] == '/' && l.input[i+1] == '#' {
-						depth++
-						i += 2
-						continue
-					}
-					if l.input[i] == '#' && l.input[i+1] == '/' {
-						depth--
-						i += 2
-						if depth == 0 {
-							return i - l.index
-						}
-						continue
-					}
-					i++
-				}
-				startLine := l.line
-				startCol := l.col
-				endLine := l.line
-				endCol := l.col
-				l.diagnostics = append(l.diagnostics, d.New("unterminated block comment", startLine, startCol, endLine, endCol, "error"))
-				return len(l.input) - l.index
+				return l.consumeBlockComment(startLine, startCol)
 			}
 		}
 		return l.handleOperatorToken(c, startLine, startCol)
 	case '#':
 		if l.index+1 < len(l.input) && l.input[l.index+1] == '/' {
 			l.HandleBuffer()
-			commentEnd := bytes.IndexByte(l.input[l.index+2:], '\n')
-			if commentEnd < 0 {
-				return len(l.input) - l.index
-			}
-			return commentEnd + 2
+			return l.consumeLineComment(l.index + 2)
 		}
 		if len(l.buffer) == 0 {
 			l.bufferLine = l.line
@@ -384,37 +380,7 @@ func (l *Lexer) HandleCharacter(c byte) int {
 		return 1
 	case '"':
 		l.HandleBuffer()
-
-		i := l.index + 1
-		escaped := false
-		for i < len(l.input) {
-			c := l.input[i]
-			if escaped {
-				escaped = false
-				i++
-				continue
-			}
-			if c == '\\' {
-				escaped = true
-				i++
-				continue
-			}
-			if c == '"' {
-				string_content := l.input[l.index+1 : i]
-				endCol := startCol + (i - l.index)
-				l.tokens = append(l.tokens, Token{Type: STRING, Content: string(string_content), Line: startLine, Col: startCol, EndLine: startLine, EndCol: endCol, StartOffset: l.index, EndOffset: i})
-				return i - l.index + 1
-			}
-			i++
-		}
-		endLine := l.line
-		endCol := l.col
-		if len(l.input) > 0 {
-			endLine = l.line
-			endCol = l.col
-		}
-		l.diagnostics = append(l.diagnostics, d.New("unterminated string literal", startLine, startCol, endLine, endCol, "error"))
-		return len(l.input) - l.index
+		return l.consumeString(startLine, startCol)
 	default:
 		if len(l.buffer) == 0 {
 			l.bufferLine = l.line

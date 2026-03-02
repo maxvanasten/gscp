@@ -37,18 +37,8 @@ func main() {
 		l := lexer.NewLexer(data)
 		tokens := l.GetTokens()
 		lexerDiagnostics := l.GetDiagnostics()
-		encoded, err := json.Marshal(tokens)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error encoding tokens: %v\n", err)
-			os.Exit(1)
-		}
-		jsonTokens := []lexer.Token{}
-		if err := json.Unmarshal(encoded, &jsonTokens); err != nil {
-			fmt.Fprintf(os.Stderr, "Error decoding tokens: %v\n", err)
-			os.Exit(1)
-		}
 
-		ast, parseDiagnostics := parser.Parse(jsonTokens)
+		ast, parseDiagnostics := parser.Parse(tokens)
 		output := ParseOutput{
 			AST:         ast,
 			Diagnostics: append(lexerDiagnostics, parseDiagnostics...),
