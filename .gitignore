@@ -2,3 +2,6 @@ gscp
 input/*
 plans/*
 build.sh
+dist/*
+build-releases.sh
+log.txt
