@@ -245,7 +245,7 @@ func (l *Lexer) consumeLineComment(start int) int {
 	return commentEnd + (start - l.index)
 }
 
-func (l *Lexer) consumeBlockComment(startLine int, startCol int) int {
+func (l *Lexer) consumeSlashHashBlockComment(startLine int, startCol int) int {
 	depth := 1
 	i := l.index + 2
 	for i < len(l.input)-1 {
@@ -261,6 +261,18 @@ func (l *Lexer) consumeBlockComment(startLine int, startCol int) int {
 				return i - l.index
 			}
 			continue
+		}
+		i++
+	}
+	l.diagnostics = append(l.diagnostics, d.New("unterminated block comment", startLine, startCol, startLine, startCol, "error"))
+	return len(l.input) - l.index
+}
+
+func (l *Lexer) consumeCBlockComment(startLine int, startCol int) int {
+	i := l.index + 2
+	for i < len(l.input)-1 {
+		if l.input[i] == '*' && l.input[i+1] == '/' {
+			return i - l.index + 2
 		}
 		i++
 	}
@@ -341,7 +353,11 @@ func (l *Lexer) HandleCharacter(c byte) int {
 			}
 			if next == '#' {
 				l.HandleBuffer()
-				return l.consumeBlockComment(startLine, startCol)
+				return l.consumeSlashHashBlockComment(startLine, startCol)
+			}
+			if next == '*' {
+				l.HandleBuffer()
+				return l.consumeCBlockComment(startLine, startCol)
 			}
 		}
 		return l.handleOperatorToken(c, startLine, startCol)

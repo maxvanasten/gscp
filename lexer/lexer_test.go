@@ -24,6 +24,20 @@ func assertTokens(t *testing.T, input []byte, targets []lexer.Token) {
 	assert.Equal(t, targets, actual)
 }
 
+func assertTokensWithDiagnostics(t *testing.T, input []byte, targets []lexer.Token, diagnostics int) {
+	t.Helper()
+
+	l := lexer.NewLexer(input)
+	tokens := l.GetTokens()
+
+	actual := []lexer.Token{}
+	for _, tok := range tokens {
+		actual = append(actual, lexer.Token{Type: tok.Type, Content: tok.Content})
+	}
+	assert.Equal(t, targets, actual)
+	assert.Len(t, l.GetDiagnostics(), diagnostics)
+}
+
 func TestLexerSymbol(t *testing.T) {
 	input := []byte("alpha")
 
@@ -247,4 +261,37 @@ func TestLexerLogicalOperators(t *testing.T) {
 	}
 
 	assertTokens(t, input, targets)
+}
+
+func TestLexerSlashHashBlockComment(t *testing.T) {
+	input := []byte("a /# comment #/ b")
+
+	targets := []lexer.Token{
+		tok(lexer.SYMBOL, "a"),
+		tok(lexer.SYMBOL, "b"),
+	}
+
+	assertTokensWithDiagnostics(t, input, targets, 0)
+}
+
+func TestLexerSlashHashBlockCommentNested(t *testing.T) {
+	input := []byte("a /# outer /# inner #/ end #/ b")
+
+	targets := []lexer.Token{
+		tok(lexer.SYMBOL, "a"),
+		tok(lexer.SYMBOL, "b"),
+	}
+
+	assertTokensWithDiagnostics(t, input, targets, 0)
+}
+
+func TestLexerCBlockComment(t *testing.T) {
+	input := []byte("a /* comment */ b")
+
+	targets := []lexer.Token{
+		tok(lexer.SYMBOL, "a"),
+		tok(lexer.SYMBOL, "b"),
+	}
+
+	assertTokensWithDiagnostics(t, input, targets, 0)
 }
