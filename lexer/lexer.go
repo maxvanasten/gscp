@@ -17,8 +17,6 @@ const (
 	SYMBOL
 	NUMBER
 	STRING
-	LINE_COMMENT
-	BLOCK_COMMENT
 
 	TERMINATOR
 	COMMA
@@ -34,6 +32,8 @@ const (
 
 	ASSIGNMENT
 	OPERATOR
+	LINE_COMMENT
+	BLOCK_COMMENT
 )
 
 func (t TokenType) ToString() string {
