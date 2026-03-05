@@ -268,6 +268,7 @@ func TestLexerSlashHashBlockComment(t *testing.T) {
 
 	targets := []lexer.Token{
 		tok(lexer.SYMBOL, "a"),
+		tok(lexer.BLOCK_COMMENT, "/# comment #/"),
 		tok(lexer.SYMBOL, "b"),
 	}
 
@@ -279,6 +280,7 @@ func TestLexerSlashHashBlockCommentNested(t *testing.T) {
 
 	targets := []lexer.Token{
 		tok(lexer.SYMBOL, "a"),
+		tok(lexer.BLOCK_COMMENT, "/# outer /# inner #/ end #/"),
 		tok(lexer.SYMBOL, "b"),
 	}
 
@@ -290,6 +292,20 @@ func TestLexerCBlockComment(t *testing.T) {
 
 	targets := []lexer.Token{
 		tok(lexer.SYMBOL, "a"),
+		tok(lexer.BLOCK_COMMENT, "/* comment */"),
+		tok(lexer.SYMBOL, "b"),
+	}
+
+	assertTokensWithDiagnostics(t, input, targets, 0)
+}
+
+func TestLexerLineComment(t *testing.T) {
+	input := []byte("a // comment\nb")
+
+	targets := []lexer.Token{
+		tok(lexer.SYMBOL, "a"),
+		tok(lexer.LINE_COMMENT, "// comment"),
+		tok(lexer.NEWLINE, ""),
 		tok(lexer.SYMBOL, "b"),
 	}
 

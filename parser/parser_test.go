@@ -874,3 +874,24 @@ func Test_Function_Call_Complex_Args(t *testing.T) {
 	result, _ := parseTokens(t, input)
 	assert.Equal(t, target, result)
 }
+
+func Test_Comments_AreParsedAsNodes(t *testing.T) {
+	input := []l.Token{
+		{Type: l.SYMBOL, Content: "a"},
+		{Type: l.ASSIGNMENT, Content: "="},
+		{Type: l.NUMBER, Content: "1"},
+		{Type: l.TERMINATOR, Content: ";"},
+		{Type: l.LINE_COMMENT, Content: "// keep me"},
+		{Type: l.NEWLINE, Content: ""},
+		{Type: l.BLOCK_COMMENT, Content: "/* and me */"},
+	}
+
+	target := []testNode{
+		{"assignment", p.NodeData{VarName: "a"}, []testNode{{"number", p.NodeData{Content: "1"}, []testNode{}}}},
+		{"comment", p.NodeData{Content: "// keep me"}, []testNode{}},
+		{"comment", p.NodeData{Content: "/* and me */"}, []testNode{}},
+	}
+
+	result, _ := parseTokens(t, input)
+	assert.Equal(t, target, result)
+}

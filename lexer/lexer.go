@@ -17,6 +17,8 @@ const (
 	SYMBOL
 	NUMBER
 	STRING
+	LINE_COMMENT
+	BLOCK_COMMENT
 
 	TERMINATOR
 	COMMA
@@ -44,6 +46,10 @@ func (t TokenType) ToString() string {
 		return "number"
 	case STRING:
 		return "string"
+	case LINE_COMMENT:
+		return "line_comment"
+	case BLOCK_COMMENT:
+		return "block_comment"
 	case TERMINATOR:
 		return "terminator"
 	case COMMA:
@@ -237,12 +243,44 @@ func (l *Lexer) HandleBuffer() {
 	l.buffer = []byte{}
 }
 
-func (l *Lexer) consumeLineComment(start int) int {
-	commentEnd := bytes.IndexByte(l.input[start:], '\n')
-	if commentEnd < 0 {
-		return len(l.input) - l.index
+func endPositionForConsumed(startLine int, startCol int, consumed []byte) (int, int) {
+	if len(consumed) == 0 {
+		return startLine, startCol
 	}
-	return commentEnd + (start - l.index)
+
+	line := startLine
+	col := startCol
+	for i, c := range consumed {
+		if i == len(consumed)-1 {
+			return line, col
+		}
+		if c == '\n' {
+			line++
+			col = 1
+			continue
+		}
+		col++
+	}
+
+	return line, col
+}
+
+func (l *Lexer) emitCommentToken(tokenType TokenType, startLine int, startCol int, consumed []byte) {
+	if len(consumed) == 0 {
+		return
+	}
+	endLine, endCol := endPositionForConsumed(startLine, startCol, consumed)
+	l.emitToken(tokenType, string(consumed), startLine, startCol, endLine, endCol, l.index, l.index+len(consumed)-1)
+}
+
+func (l *Lexer) consumeLineComment(startLine int, startCol int) int {
+	commentEnd := bytes.IndexByte(l.input[l.index:], '\n')
+	if commentEnd < 0 {
+		commentEnd = len(l.input) - l.index
+	}
+	consumed := l.input[l.index : l.index+commentEnd]
+	l.emitCommentToken(LINE_COMMENT, startLine, startCol, consumed)
+	return commentEnd
 }
 
 func (l *Lexer) consumeSlashHashBlockComment(startLine int, startCol int) int {
@@ -258,6 +296,8 @@ func (l *Lexer) consumeSlashHashBlockComment(startLine int, startCol int) int {
 			depth--
 			i += 2
 			if depth == 0 {
+				consumed := l.input[l.index:i]
+				l.emitCommentToken(BLOCK_COMMENT, startLine, startCol, consumed)
 				return i - l.index
 			}
 			continue
@@ -272,6 +312,8 @@ func (l *Lexer) consumeCBlockComment(startLine int, startCol int) int {
 	i := l.index + 2
 	for i < len(l.input)-1 {
 		if l.input[i] == '*' && l.input[i+1] == '/' {
+			consumed := l.input[l.index : i+2]
+			l.emitCommentToken(BLOCK_COMMENT, startLine, startCol, consumed)
 			return i - l.index + 2
 		}
 		i++
@@ -331,6 +373,9 @@ func TokensUntilAny(tokens []Token, targets []TokenType) []Token {
 	token_buffer := []Token{}
 
 	for _, t := range tokens {
+		if t.Type == LINE_COMMENT || t.Type == BLOCK_COMMENT {
+			return token_buffer
+		}
 		token_buffer = append(token_buffer, t)
 		if slices.Contains(targets, t.Type) {
 			return token_buffer
@@ -349,7 +394,7 @@ func (l *Lexer) HandleCharacter(c byte) int {
 			next := l.input[l.index+1]
 			if next == '/' {
 				l.HandleBuffer()
-				return l.consumeLineComment(l.index + 2)
+				return l.consumeLineComment(startLine, startCol)
 			}
 			if next == '#' {
 				l.HandleBuffer()
@@ -364,7 +409,7 @@ func (l *Lexer) HandleCharacter(c byte) int {
 	case '#':
 		if l.index+1 < len(l.input) && l.input[l.index+1] == '/' {
 			l.HandleBuffer()
-			return l.consumeLineComment(l.index + 2)
+			return l.consumeLineComment(startLine, startCol)
 		}
 		if len(l.buffer) == 0 {
 			l.bufferLine = l.line

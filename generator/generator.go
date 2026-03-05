@@ -65,6 +65,8 @@ func Generate(node p.Node) string {
 	output := strings.Builder{}
 
 	switch node.Type {
+	case "comment":
+		output.WriteString(node.Data.Content)
 	case "variable_reference":
 		output.WriteString(node.Data.VarName)
 		if node.Data.Index != "" {

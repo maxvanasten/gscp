@@ -14,6 +14,8 @@ func Parse(tokens []l.Token) ([]Node, []d.Diagnostic) {
 	index := 0
 	for index < len(tokens) {
 		switch tokens[index].Type {
+		case l.LINE_COMMENT, l.BLOCK_COMMENT:
+			output = append(output, nodeWithSpan("comment", NodeData{Content: tokens[index].Content}, []Node{}, spanFromToken(tokens[index])))
 		case l.STRING:
 			output = append(output, nodeWithSpan("string", NodeData{Content: tokens[index].Content}, []Node{}, spanFromToken(tokens[index])))
 		case l.SYMBOL:

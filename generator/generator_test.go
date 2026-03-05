@@ -330,10 +330,19 @@ func Test_Generate_Args(t *testing.T) {
 func Test_Generate_Scope(t *testing.T) {
 	input := testNode{"scope", p.NodeData{}, []testNode{
 		{"wait_statement", p.NodeData{Delay: "0.05"}, []testNode{}},
+		{"comment", p.NodeData{Content: "// keep"}, []testNode{}},
 		{"break_statement", p.NodeData{}, []testNode{}},
 	}}
 
-	target := indentLines("wait 0.05;", "break;")
+	target := indentLines("wait 0.05;", "// keep", "break;")
+
+	result := generate(input)
+	assert.Equal(t, target, result)
+}
+
+func Test_Generate_Comment(t *testing.T) {
+	input := testNode{"comment", p.NodeData{Content: "/* keep me */"}, []testNode{}}
+	target := "/* keep me */"
 
 	result := generate(input)
 	assert.Equal(t, target, result)
