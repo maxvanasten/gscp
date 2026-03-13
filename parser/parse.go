@@ -7,6 +7,14 @@ import (
 	l "github.com/maxvanasten/gscp/lexer"
 )
 
+func variableReferenceWithIndex(node Node) string {
+	name := node.Data.VarName
+	if node.Data.Index != "" {
+		name += "[" + node.Data.Index + "]"
+	}
+	return name
+}
+
 func Parse(tokens []l.Token) ([]Node, []d.Diagnostic) {
 	output := []Node{}
 	diagnostics := []d.Diagnostic{}
@@ -303,13 +311,13 @@ func Parse(tokens []l.Token) ([]Node, []d.Diagnostic) {
 							if len(output)-3 >= 0 {
 								if output[len(output)-3].Type == "variable_reference" {
 									c = 3
-									data.Method = output[len(output)-3].Data.VarName
+									data.Method = variableReferenceWithIndex(output[len(output)-3])
 								}
 							}
 						}
 						if output[len(output)-2].Type == "variable_reference" {
 							c = 2
-							data.Method = output[len(output)-2].Data.VarName
+							data.Method = variableReferenceWithIndex(output[len(output)-2])
 						}
 					}
 				}

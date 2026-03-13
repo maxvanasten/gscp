@@ -297,6 +297,17 @@ func Test_Generate_FunctionCall_Method(t *testing.T) {
 	assert.Equal(t, target, result)
 }
 
+func Test_Generate_FunctionCall_MethodWithIndex(t *testing.T) {
+	input := testNode{"function_call", p.NodeData{FunctionName: "ml_update_text", Method: "self.hud_perks[i]"}, []testNode{
+		{"variable_reference", p.NodeData{VarName: "perk"}, []testNode{}},
+	}}
+
+	target := "self.hud_perks[i] ml_update_text(perk);"
+
+	result := generate(input)
+	assert.Equal(t, target, result)
+}
+
 func Test_Generate_FunctionCall_Thread(t *testing.T) {
 	input := testNode{"function_call", p.NodeData{FunctionName: "do_thing", Thread: true}, []testNode{}}
 

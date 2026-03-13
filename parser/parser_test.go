@@ -569,6 +569,28 @@ func Test_Method_Function_Call(t *testing.T) {
 	assert.Equal(t, target, result)
 }
 
+func Test_Method_Function_Call_WithIndexedReceiver(t *testing.T) {
+	input := []l.Token{
+		{Type: l.SYMBOL, Content: "self.hud_perks"},
+		{Type: l.OPEN_BRACKET, Content: "["},
+		{Type: l.SYMBOL, Content: "i"},
+		{Type: l.CLOSE_BRACKET, Content: "]"},
+		{Type: l.SYMBOL, Content: "ml_update_text"},
+		{Type: l.OPEN_PAREN, Content: "("},
+		{Type: l.SYMBOL, Content: "perk"},
+		{Type: l.CLOSE_PAREN, Content: ")"},
+		{Type: l.TERMINATOR, Content: ";"},
+	}
+	target := []testNode{
+		{"function_call", p.NodeData{FunctionName: "ml_update_text", Method: "self.hud_perks[i]"}, []testNode{
+			{"variable_reference", p.NodeData{VarName: "perk"}, []testNode{}},
+		}},
+	}
+
+	result, _ := parseTokens(t, input)
+	assert.Equal(t, target, result)
+}
+
 func Test_Threaded_Function_Call(t *testing.T) {
 	input := []l.Token{
 		{Type: l.SYMBOL, Content: "thread"},
