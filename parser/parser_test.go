@@ -333,6 +333,45 @@ func Test_Unary_Expression(t *testing.T) {
 	assert.Equal(t, targets, result)
 }
 
+func Test_Unary_Expression_ActsAsBinaryLHS(t *testing.T) {
+	input := []l.Token{
+		{Type: l.SYMBOL, Content: "x"},
+		{Type: l.ASSIGNMENT, Content: "="},
+		{Type: l.OPERATOR, Content: "-"},
+		{Type: l.NUMBER, Content: "130"},
+		{Type: l.OPERATOR, Content: "-"},
+		{Type: l.SYMBOL, Content: "i"},
+		{Type: l.OPERATOR, Content: "*"},
+		{Type: l.NUMBER, Content: "10"},
+		{Type: l.TERMINATOR, Content: ";"},
+	}
+
+	targets := []testNode{
+		{"assignment", p.NodeData{VarName: "x"}, []testNode{
+			{"expression", p.NodeData{Operator: "-"}, []testNode{
+				{"lhs", p.NodeData{}, []testNode{
+					{"unary_expression", p.NodeData{Operator: "-"}, []testNode{
+						{"number", p.NodeData{Content: "130"}, []testNode{}},
+					}},
+				}},
+				{"rhs", p.NodeData{}, []testNode{
+					{"expression", p.NodeData{Operator: "*"}, []testNode{
+						{"lhs", p.NodeData{}, []testNode{
+							{"variable_reference", p.NodeData{VarName: "i"}, []testNode{}},
+						}},
+						{"rhs", p.NodeData{}, []testNode{
+							{"number", p.NodeData{Content: "10"}, []testNode{}},
+						}},
+					}},
+				}},
+			}},
+		}},
+	}
+
+	result, _ := parseTokens(t, input)
+	assert.Equal(t, targets, result)
+}
+
 func Test_Array_Literal_Empty(t *testing.T) {
 	input := []l.Token{
 		{Type: l.SYMBOL, Content: "x"},

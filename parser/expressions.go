@@ -188,10 +188,10 @@ func parseOperatorToken(tokens []l.Token, index int, output []Node) ([]Node, []d
 		diagnostics = append(diagnostics, diagnosticAtIndex("operator missing left-hand operand", tokens, index, "error"))
 		return updated, diagnostics, newIndex, true
 	}
-	// Check if previous node is either a string, variable_reference, number, function_call or another expression
+	// Check if previous node is either a string, variable_reference, number, unary/function_call or expression
 	previous_node := updated[len(updated)-1]
 	switch previous_node.Type {
-	case "string", "variable_reference", "number", "function_call", "expression":
+	case "string", "variable_reference", "number", "unary_expression", "function_call", "expression":
 		// Set LHS to previous node
 		lhs := nodeWithSpan("lhs", NodeData{}, []Node{previous_node}, spanFromNode(previous_node))
 		// Delete previous node

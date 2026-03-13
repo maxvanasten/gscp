@@ -127,6 +127,32 @@ func Test_Generate_Unary_Expression(t *testing.T) {
 	assert.Equal(t, target, result)
 }
 
+func Test_Generate_AssignmentWithUnaryExpressionBinaryLHS(t *testing.T) {
+	input := testNode{"assignment", p.NodeData{VarName: "x"}, []testNode{
+		{"expression", p.NodeData{Operator: "-"}, []testNode{
+			{"lhs", p.NodeData{}, []testNode{
+				{"unary_expression", p.NodeData{Operator: "-"}, []testNode{
+					{"number", p.NodeData{Content: "130"}, []testNode{}},
+				}},
+			}},
+			{"rhs", p.NodeData{}, []testNode{
+				{"expression", p.NodeData{Operator: "*"}, []testNode{
+					{"lhs", p.NodeData{}, []testNode{
+						{"variable_reference", p.NodeData{VarName: "i"}, []testNode{}},
+					}},
+					{"rhs", p.NodeData{}, []testNode{
+						{"number", p.NodeData{Content: "10"}, []testNode{}},
+					}},
+				}},
+			}},
+		}},
+	}}
+	target := "x = -130 - i * 10;"
+
+	result := generate(input)
+	assert.Equal(t, target, result)
+}
+
 func Test_Generate_Lhs(t *testing.T) {
 	input := testNode{"lhs", p.NodeData{}, []testNode{
 		{"variable_reference", p.NodeData{VarName: "x"}, []testNode{}},
