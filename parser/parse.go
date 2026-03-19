@@ -119,8 +119,8 @@ func Parse(tokens []l.Token) ([]Node, []d.Diagnostic) {
 				break
 			}
 			output = output[:len(output)-1]
-			// Get all tokens from ASSIGNMENT until END, NEWLINE or TERMINATOR
-			ass_tokens := l.TokensUntilAny(tokens[index+1:], []l.TokenType{l.NEWLINE, l.TERMINATOR})
+			// Get all tokens from ASSIGNMENT until END, NEWLINE or TERMINATOR (at depth 0 for multiline support)
+			ass_tokens := l.TokensUntilAnyBalanced(tokens[index+1:], []l.TokenType{l.NEWLINE, l.TERMINATOR})
 
 			ass_children, diags := Parse(ass_tokens)
 			assignment_data := NodeData{VarName: previous_node.Data.VarName, Index: previous_node.Data.Index}
@@ -365,7 +365,14 @@ func Parse(tokens []l.Token) ([]Node, []d.Diagnostic) {
 			if len(array_tokens) > 0 && array_tokens[len(array_tokens)-1].Type == l.CLOSE_BRACKET {
 				array_tokens = array_tokens[:len(array_tokens)-1]
 			}
-			elem_slices := splitTopLevel(array_tokens, l.COMMA, true)
+			// Filter out newlines from array tokens before parsing elements
+			filtered_tokens := []l.Token{}
+			for _, t := range array_tokens {
+				if t.Type != l.NEWLINE {
+					filtered_tokens = append(filtered_tokens, t)
+				}
+			}
+			elem_slices := splitTopLevel(filtered_tokens, l.COMMA, true)
 
 			array_children := []Node{}
 			for _, elem_tokens := range elem_slices {

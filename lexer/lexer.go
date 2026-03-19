@@ -385,6 +385,53 @@ func TokensUntilAny(tokens []Token, targets []TokenType) []Token {
 	return token_buffer
 }
 
+// TokensUntilAnyBalanced returns tokens until finding any target at depth 0.
+// It tracks bracket/paren/curly depth and only stops when a target is found
+// and all brackets/parens/curlies are balanced (depth 0).
+func TokensUntilAnyBalanced(tokens []Token, targets []TokenType) []Token {
+	token_buffer := []Token{}
+	depthParen := 0
+	depthBracket := 0
+	depthCurly := 0
+
+	for _, t := range tokens {
+		if t.Type == LINE_COMMENT || t.Type == BLOCK_COMMENT {
+			return token_buffer
+		}
+
+		token_buffer = append(token_buffer, t)
+
+		// Track depth changes
+		switch t.Type {
+		case OPEN_PAREN:
+			depthParen++
+		case CLOSE_PAREN:
+			if depthParen > 0 {
+				depthParen--
+			}
+		case OPEN_BRACKET:
+			depthBracket++
+		case CLOSE_BRACKET:
+			if depthBracket > 0 {
+				depthBracket--
+			}
+		case OPEN_CURLY:
+			depthCurly++
+		case CLOSE_CURLY:
+			if depthCurly > 0 {
+				depthCurly--
+			}
+		}
+
+		// Only stop if we're at depth 0 and found a target
+		if depthParen == 0 && depthBracket == 0 && depthCurly == 0 && slices.Contains(targets, t.Type) {
+			return token_buffer
+		}
+	}
+
+	return token_buffer
+}
+
 func (l *Lexer) HandleCharacter(c byte) int {
 	startLine := l.line
 	startCol := l.col
