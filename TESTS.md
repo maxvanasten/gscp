@@ -53,7 +53,7 @@
 === RUN   TestDiagnosticsUnexpectedCloseCurly
 --- PASS: TestDiagnosticsUnexpectedCloseCurly (0.00s)
 PASS
-ok  	github.com/maxvanasten/gscp/diagnostics	0.009s
+ok  	github.com/maxvanasten/gscp/diagnostics	(cached)
 === RUN   Test_Generate_VariableReference
 --- PASS: Test_Generate_VariableReference (0.00s)
 === RUN   Test_Generate_String
@@ -70,6 +70,8 @@ ok  	github.com/maxvanasten/gscp/diagnostics	0.009s
 --- PASS: Test_Generate_Assignment (0.00s)
 === RUN   Test_Generate_Unary_Expression
 --- PASS: Test_Generate_Unary_Expression (0.00s)
+=== RUN   Test_Generate_AssignmentWithUnaryExpressionBinaryLHS
+--- PASS: Test_Generate_AssignmentWithUnaryExpressionBinaryLHS (0.00s)
 === RUN   Test_Generate_Lhs
 --- PASS: Test_Generate_Lhs (0.00s)
 === RUN   Test_Generate_Rhs
@@ -98,6 +100,8 @@ ok  	github.com/maxvanasten/gscp/diagnostics	0.009s
 --- PASS: Test_Generate_FunctionCall_WithArgs (0.00s)
 === RUN   Test_Generate_FunctionCall_Method
 --- PASS: Test_Generate_FunctionCall_Method (0.00s)
+=== RUN   Test_Generate_FunctionCall_MethodWithIndex
+--- PASS: Test_Generate_FunctionCall_MethodWithIndex (0.00s)
 === RUN   Test_Generate_FunctionCall_Thread
 --- PASS: Test_Generate_FunctionCall_Thread (0.00s)
 === RUN   Test_Generate_FunctionCall_MethodThread
@@ -110,6 +114,8 @@ ok  	github.com/maxvanasten/gscp/diagnostics	0.009s
 --- PASS: Test_Generate_Args (0.00s)
 === RUN   Test_Generate_Scope
 --- PASS: Test_Generate_Scope (0.00s)
+=== RUN   Test_Generate_Comment
+--- PASS: Test_Generate_Comment (0.00s)
 === RUN   Test_Generate_VectorLiteral
 --- PASS: Test_Generate_VectorLiteral (0.00s)
 === RUN   Test_Generate_ForInit
@@ -143,7 +149,7 @@ ok  	github.com/maxvanasten/gscp/diagnostics	0.009s
 === RUN   Test_Generate_SwitchStatement
 --- PASS: Test_Generate_SwitchStatement (0.00s)
 PASS
-ok  	github.com/maxvanasten/gscp/generator	0.006s
+ok  	github.com/maxvanasten/gscp/generator	(cached)
 === RUN   TestLexerSymbol
 --- PASS: TestLexerSymbol (0.00s)
 === RUN   TestLexerNumber
@@ -178,8 +184,24 @@ ok  	github.com/maxvanasten/gscp/generator	0.006s
 --- PASS: TestLexerComparisonOperators (0.00s)
 === RUN   TestLexerLogicalOperators
 --- PASS: TestLexerLogicalOperators (0.00s)
+=== RUN   TestLexerSlashHashBlockComment
+--- PASS: TestLexerSlashHashBlockComment (0.00s)
+=== RUN   TestLexerSlashHashBlockCommentNested
+--- PASS: TestLexerSlashHashBlockCommentNested (0.00s)
+=== RUN   TestLexerCBlockComment
+--- PASS: TestLexerCBlockComment (0.00s)
+=== RUN   TestLexerLineComment
+--- PASS: TestLexerLineComment (0.00s)
 PASS
-ok  	github.com/maxvanasten/gscp/lexer	0.005s
+ok  	github.com/maxvanasten/gscp/lexer	(cached)
+=== RUN   Test_Multiline_Array_In_Return_Within_Switch
+--- PASS: Test_Multiline_Array_In_Return_Within_Switch (0.00s)
+=== RUN   Test_Multiline_Return_Array
+--- PASS: Test_Multiline_Return_Array (0.00s)
+=== RUN   Test_Multiline_Function_Call
+--- PASS: Test_Multiline_Function_Call (0.00s)
+=== RUN   Test_Multiline_Array_Literal
+--- PASS: Test_Multiline_Array_Literal (0.00s)
 === RUN   Test_Variable_Reference
 --- PASS: Test_Variable_Reference (0.00s)
 === RUN   Test_String
@@ -202,6 +224,8 @@ ok  	github.com/maxvanasten/gscp/lexer	0.005s
 --- PASS: Test_Compound_Assignment (0.00s)
 === RUN   Test_Unary_Expression
 --- PASS: Test_Unary_Expression (0.00s)
+=== RUN   Test_Unary_Expression_ActsAsBinaryLHS
+--- PASS: Test_Unary_Expression_ActsAsBinaryLHS (0.00s)
 === RUN   Test_Array_Literal_Empty
 --- PASS: Test_Array_Literal_Empty (0.00s)
 === RUN   Test_Array_Literal_Multiple
@@ -220,6 +244,8 @@ ok  	github.com/maxvanasten/gscp/lexer	0.005s
 --- PASS: Test_Namespace_Function_Call (0.00s)
 === RUN   Test_Method_Function_Call
 --- PASS: Test_Method_Function_Call (0.00s)
+=== RUN   Test_Method_Function_Call_WithIndexedReceiver
+--- PASS: Test_Method_Function_Call_WithIndexedReceiver (0.00s)
 === RUN   Test_Threaded_Function_Call
 --- PASS: Test_Threaded_Function_Call (0.00s)
 === RUN   Test_Function_Declaration
@@ -246,6 +272,8 @@ ok  	github.com/maxvanasten/gscp/lexer	0.005s
 --- PASS: Test_Function_Calls (0.00s)
 === RUN   Test_Function_Call_Complex_Args
 --- PASS: Test_Function_Call_Complex_Args (0.00s)
+=== RUN   Test_Comments_AreParsedAsNodes
+--- PASS: Test_Comments_AreParsedAsNodes (0.00s)
 PASS
-ok  	github.com/maxvanasten/gscp/parser	0.007s
+ok  	github.com/maxvanasten/gscp/parser	(cached)
 ```

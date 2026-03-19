@@ -59,7 +59,7 @@ func Parse(tokens []l.Token) ([]Node, []d.Diagnostic) {
 			case "break":
 				output = append(output, nodeWithSpan("break_statement", NodeData{}, []Node{}, spanFromToken(tokens[index])))
 			case "return":
-				ret_tokens := l.TokensUntilAny(tokens[index+1:], []l.TokenType{l.NEWLINE, l.TERMINATOR})
+				ret_tokens := l.TokensUntilAnyBalanced(tokens[index+1:], []l.TokenType{l.NEWLINE, l.TERMINATOR})
 				ret_children, diags := Parse(ret_tokens)
 				endToken, ok := lastNonTokenType(ret_tokens, l.NEWLINE, l.TERMINATOR)
 				endSpan := spanFromToken(tokens[index])
