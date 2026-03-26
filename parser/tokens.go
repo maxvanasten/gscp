@@ -25,6 +25,10 @@ func tokensToString(tokens []l.Token) string {
 func tokensUntilMatchingClose(tokens []l.Token, openType l.TokenType, closeType l.TokenType) ([]l.Token, bool) {
 	depth := 0
 	for i, token := range tokens {
+		// Skip comments but continue searching
+		if token.Type == l.LINE_COMMENT || token.Type == l.BLOCK_COMMENT {
+			continue
+		}
 		switch token.Type {
 		case openType:
 			depth++

@@ -311,3 +311,26 @@ func TestLexerLineComment(t *testing.T) {
 
 	assertTokensWithDiagnostics(t, input, targets, 0)
 }
+
+func TestLexerHashString(t *testing.T) {
+	input := []byte(`getdvar(#"mapname")`)
+
+	targets := []lexer.Token{
+		tok(lexer.SYMBOL, "getdvar"),
+		tok(lexer.OPEN_PAREN, "("),
+		tok(lexer.HASH_STRING, "mapname"),
+		tok(lexer.CLOSE_PAREN, ")"),
+	}
+
+	assertTokensWithDiagnostics(t, input, targets, 0)
+}
+
+func TestLexerHashStringWithSpecialChars(t *testing.T) {
+	input := []byte(`#"ZOMBIE_WEAPON_BOWIE_BUY"`)
+
+	targets := []lexer.Token{
+		tok(lexer.HASH_STRING, "ZOMBIE_WEAPON_BOWIE_BUY"),
+	}
+
+	assertTokensWithDiagnostics(t, input, targets, 0)
+}

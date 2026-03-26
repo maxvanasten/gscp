@@ -81,7 +81,9 @@ func TestDiagnosticsLexerSymbolStarts(t *testing.T) {
 	input := []byte("::init_sidequest points[i].target _private")
 	lexer := l.NewLexer(input)
 	assert.Len(t, lexer.GetDiagnostics(), 0)
-	assert.Contains(t, tokenContents(lexer.GetTokens()), "::init_sidequest")
+	// :: is now tokenized separately as FUNCTION_POINTER, followed by the function name
+	assert.Contains(t, tokenContents(lexer.GetTokens()), "::")
+	assert.Contains(t, tokenContents(lexer.GetTokens()), "init_sidequest")
 	assert.Contains(t, tokenContents(lexer.GetTokens()), "points")
 	assert.Contains(t, tokenContents(lexer.GetTokens()), ".target")
 	assert.Contains(t, tokenContents(lexer.GetTokens()), "_private")
@@ -239,7 +241,9 @@ func TestDiagnosticsUnexpectedOpenCurly(t *testing.T) {
 	}
 
 	_, diags := p.Parse(input)
-	expected := d.New("unexpected {", 1, 1, 1, 1, "error")
+	// Parser now handles bare blocks gracefully for decompiled code compatibility
+	// Expect "missing closing }" instead of "unexpected {"
+	expected := d.New("missing closing }", 1, 1, 1, 1, "error")
 	assertHasDiagnostic(t, diags, expected)
 }
 
@@ -269,6 +273,9 @@ func TestDiagnosticsUnexpectedCloseCurly(t *testing.T) {
 	}
 
 	_, diags := p.Parse(input)
-	expected := d.New("unexpected }", 1, 4, 1, 4, "error")
-	assertHasDiagnostic(t, diags, expected)
+	// Parser now handles stray closing braces gracefully for decompiled code compatibility
+	// No error should be reported
+	if len(diags) != 0 {
+		t.Errorf("Expected no diagnostics for stray closing brace, got %v", diags)
+	}
 }

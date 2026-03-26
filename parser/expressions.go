@@ -196,8 +196,9 @@ func parseOperatorToken(tokens []l.Token, index int, output []Node) ([]Node, []d
 		lhs := nodeWithSpan("lhs", NodeData{}, []Node{previous_node}, spanFromNode(previous_node))
 		// Delete previous node
 		updated = updated[:len(updated)-1]
-		// Get all tokens from OPERATOR until END, NEWLINE or TERMINATOR
-		expr_tokens := l.TokensUntilAny(tokens[index+1:], []l.TokenType{l.NEWLINE, l.TERMINATOR})
+		// Get all tokens from OPERATOR until TERMINATOR or CLOSE_PAREN at depth 0
+		// Using TokensForExpression to handle multiline expressions
+		expr_tokens := l.TokensForExpression(tokens[index+1:], []l.TokenType{l.TERMINATOR, l.CLOSE_PAREN})
 		if tokens[index].Content == "&&" {
 			depthParen := 0
 			depthBracket := 0
