@@ -614,23 +614,3 @@ func Test_Generate_SwitchStatement(t *testing.T) {
 	result := generate(input)
 	assert.Equal(t, target, result)
 }
-
-func Test_Generate_HashString(t *testing.T) {
-	input := testNode{"hash_string", p.NodeData{Content: "mapname"}, []testNode{}}
-
-	target := `#"mapname"`
-
-	result := generate(input)
-	assert.Equal(t, target, result)
-}
-
-func Test_Generate_FunctionCallWithHashString(t *testing.T) {
-	input := testNode{"function_call", p.NodeData{FunctionName: "getdvar"}, []testNode{
-		{"hash_string", p.NodeData{Content: "mapname"}, []testNode{}},
-	}}
-
-	target := `getdvar(#"mapname");`
-
-	result := generate(input)
-	assert.Equal(t, target, result)
-}

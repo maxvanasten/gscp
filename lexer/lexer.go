@@ -17,8 +17,6 @@ const (
 	SYMBOL
 	NUMBER
 	STRING
-	HASH_STRING
-	FUNCTION_POINTER
 
 	TERMINATOR
 	COMMA
@@ -48,10 +46,6 @@ func (t TokenType) ToString() string {
 		return "number"
 	case STRING:
 		return "string"
-	case HASH_STRING:
-		return "hash_string"
-	case FUNCTION_POINTER:
-		return "function_pointer"
 	case LINE_COMMENT:
 		return "line_comment"
 	case BLOCK_COMMENT:
@@ -355,33 +349,6 @@ func (l *Lexer) consumeString(startLine int, startCol int) int {
 	return len(l.input) - l.index
 }
 
-func (l *Lexer) consumeHashString(startLine int, startCol int) int {
-	i := l.index + 2
-	escaped := false
-	for i < len(l.input) {
-		c := l.input[i]
-		if escaped {
-			escaped = false
-			i++
-			continue
-		}
-		if c == '\\' {
-			escaped = true
-			i++
-			continue
-		}
-		if c == '"' {
-			stringContent := l.input[l.index+2 : i]
-			endCol := startCol + (i - l.index)
-			l.tokens = append(l.tokens, Token{Type: HASH_STRING, Content: string(stringContent), Line: startLine, Col: startCol, EndLine: startLine, EndCol: endCol, StartOffset: l.index, EndOffset: i})
-			return i - l.index + 1
-		}
-		i++
-	}
-	l.diagnostics = append(l.diagnostics, d.New("unterminated hash string literal", startLine, startCol, startLine, startCol, "error"))
-	return len(l.input) - l.index
-}
-
 func (l *Lexer) handleOperatorToken(c byte, startLine int, startCol int) int {
 	startOffset := l.index
 	if l.index+1 < len(l.input) {
@@ -406,11 +373,10 @@ func TokensUntilAny(tokens []Token, targets []TokenType) []Token {
 	token_buffer := []Token{}
 
 	for _, t := range tokens {
-		token_buffer = append(token_buffer, t)
-		// Skip comments when checking for targets, but include them in the buffer
 		if t.Type == LINE_COMMENT || t.Type == BLOCK_COMMENT {
-			continue
+			return token_buffer
 		}
+		token_buffer = append(token_buffer, t)
 		if slices.Contains(targets, t.Type) {
 			return token_buffer
 		}
@@ -422,7 +388,6 @@ func TokensUntilAny(tokens []Token, targets []TokenType) []Token {
 // TokensUntilAnyBalanced returns tokens until finding any target at depth 0.
 // It tracks bracket/paren/curly depth and only stops when a target is found
 // and all brackets/parens/curlies are balanced (depth 0).
-// Note: Comments are included so that index calculations remain accurate.
 func TokensUntilAnyBalanced(tokens []Token, targets []TokenType) []Token {
 	token_buffer := []Token{}
 	depthParen := 0
@@ -430,13 +395,13 @@ func TokensUntilAnyBalanced(tokens []Token, targets []TokenType) []Token {
 	depthCurly := 0
 
 	for _, t := range tokens {
-		token_buffer = append(token_buffer, t)
-
-		// Track depth changes (skip comments for depth tracking)
 		if t.Type == LINE_COMMENT || t.Type == BLOCK_COMMENT {
-			continue
+			return token_buffer
 		}
 
+		token_buffer = append(token_buffer, t)
+
+		// Track depth changes
 		switch t.Type {
 		case OPEN_PAREN:
 			depthParen++
@@ -460,47 +425,6 @@ func TokensUntilAnyBalanced(tokens []Token, targets []TokenType) []Token {
 
 		// Only stop if we're at depth 0 and found a target
 		if depthParen == 0 && depthBracket == 0 && depthCurly == 0 && slices.Contains(targets, t.Type) {
-			return token_buffer
-		}
-	}
-
-	return token_buffer
-}
-
-// TokensForExpression returns tokens for a complete expression, handling multiline.
-// It collects tokens until it finds a target at depth 0.
-// Note: Comments are included so that index calculations remain accurate.
-func TokensForExpression(tokens []Token, targets []TokenType) []Token {
-	token_buffer := []Token{}
-	depthParen := 0
-	depthBracket := 0
-
-	for _, t := range tokens {
-		token_buffer = append(token_buffer, t)
-
-		// Track depth changes (skip comments for depth tracking)
-		if t.Type == LINE_COMMENT || t.Type == BLOCK_COMMENT {
-			continue
-		}
-
-		switch t.Type {
-		case OPEN_PAREN:
-			depthParen++
-		case CLOSE_PAREN:
-			if depthParen > 0 {
-				depthParen--
-			}
-		case OPEN_BRACKET:
-			depthBracket++
-		case CLOSE_BRACKET:
-			if depthBracket > 0 {
-				depthBracket--
-			}
-		}
-
-		// Only stop if we're at depth 0 and found a target
-		// Note: Unlike TokensUntilAnyBalanced, this does NOT stop at NEWLINE
-		if depthParen == 0 && depthBracket == 0 && slices.Contains(targets, t.Type) {
 			return token_buffer
 		}
 	}
@@ -534,10 +458,6 @@ func (l *Lexer) HandleCharacter(c byte) int {
 			l.HandleBuffer()
 			return l.consumeLineComment(startLine, startCol)
 		}
-		if l.index+1 < len(l.input) && l.input[l.index+1] == '"' {
-			l.HandleBuffer()
-			return l.consumeHashString(startLine, startCol)
-		}
 		if len(l.buffer) == 0 {
 			l.bufferLine = l.line
 			l.bufferCol = l.col
@@ -552,9 +472,12 @@ func (l *Lexer) HandleCharacter(c byte) int {
 		return 1
 	case ':':
 		if l.index+1 < len(l.input) && l.input[l.index+1] == ':' {
-			// Emit :: as a function pointer token immediately
-			l.HandleBuffer()
-			l.tokens = append(l.tokens, Token{Type: FUNCTION_POINTER, Content: "::", Line: startLine, Col: startCol, EndLine: startLine, EndCol: startCol + 1, StartOffset: l.index, EndOffset: l.index + 1})
+			if len(l.buffer) == 0 {
+				l.bufferLine = l.line
+				l.bufferCol = l.col
+				l.bufferIndex = l.index
+			}
+			l.buffer = append(l.buffer, ':', ':')
 			return 2
 		}
 		l.HandleBuffer()

@@ -15,15 +15,6 @@ func variableReferenceWithIndex(node Node) string {
 	return name
 }
 
-func lastNonCommentNode(output []Node) (Node, int, bool) {
-	for i := len(output) - 1; i >= 0; i-- {
-		if output[i].Type != "comment" {
-			return output[i], i, true
-		}
-	}
-	return Node{}, -1, false
-}
-
 func Parse(tokens []l.Token) ([]Node, []d.Diagnostic) {
 	output := []Node{}
 	diagnostics := []d.Diagnostic{}
@@ -68,8 +59,7 @@ func Parse(tokens []l.Token) ([]Node, []d.Diagnostic) {
 			case "break":
 				output = append(output, nodeWithSpan("break_statement", NodeData{}, []Node{}, spanFromToken(tokens[index])))
 			case "return":
-				// Only stop at TERMINATOR to support multiline expressions
-				ret_tokens := l.TokensUntilAnyBalanced(tokens[index+1:], []l.TokenType{l.TERMINATOR})
+				ret_tokens := l.TokensUntilAnyBalanced(tokens[index+1:], []l.TokenType{l.NEWLINE, l.TERMINATOR})
 				ret_children, diags := Parse(ret_tokens)
 				endToken, ok := lastNonTokenType(ret_tokens, l.NEWLINE, l.TERMINATOR)
 				endSpan := spanFromToken(tokens[index])
@@ -104,8 +94,6 @@ func Parse(tokens []l.Token) ([]Node, []d.Diagnostic) {
 
 		case l.NUMBER:
 			output = append(output, nodeWithSpan("number", NodeData{Content: tokens[index].Content}, []Node{}, spanFromToken(tokens[index])))
-		case l.HASH_STRING:
-			output = append(output, nodeWithSpan("hash_string", NodeData{Content: tokens[index].Content}, []Node{}, spanFromToken(tokens[index])))
 		case l.OPERATOR:
 			updatedOutput, opDiags, newIndex, handled := parseOperatorToken(tokens, index, output)
 			if handled {
@@ -131,9 +119,8 @@ func Parse(tokens []l.Token) ([]Node, []d.Diagnostic) {
 				break
 			}
 			output = output[:len(output)-1]
-			// Get all tokens from ASSIGNMENT until TERMINATOR (at depth 0 for multiline support)
-			// Only stop at TERMINATOR to support multiline expressions
-			ass_tokens := l.TokensUntilAnyBalanced(tokens[index+1:], []l.TokenType{l.TERMINATOR})
+			// Get all tokens from ASSIGNMENT until END, NEWLINE or TERMINATOR (at depth 0 for multiline support)
+			ass_tokens := l.TokensUntilAnyBalanced(tokens[index+1:], []l.TokenType{l.NEWLINE, l.TERMINATOR})
 
 			ass_children, diags := Parse(ass_tokens)
 			assignment_data := NodeData{VarName: previous_node.Data.VarName, Index: previous_node.Data.Index}
@@ -401,18 +388,14 @@ func Parse(tokens []l.Token) ([]Node, []d.Diagnostic) {
 			output = append(output, nodeWithSpan("array_literal", NodeData{}, array_children, mergeSpan(startSpan, endSpan)))
 			index += len(bracket_tokens)
 		case l.OPEN_CURLY:
-			previous_node, prevIndex, found := lastNonCommentNode(output)
-			if !found {
-				// Don't report error - parse as anonymous scope for decompiled code compatibility
-				scope_node, scope_diags, rawLen := parseScope(tokens, index)
-				output = append(output, scope_node)
-				diagnostics = append(diagnostics, scope_diags...)
-				index += rawLen
+			if len(output)-1 < 0 {
+				diagnostics = append(diagnostics, diagnosticAtIndex("unexpected {", tokens, index, "error"))
 				break
 			}
+			previous_node := output[len(output)-1]
 			switch previous_node.Type {
 			case "function_call":
-				output = output[:prevIndex]
+				output = output[:len(output)-1]
 				scope_node, scope_diags, rawLen := parseScope(tokens, index)
 				arg_node := nodeWithSpan("args", NodeData{}, previous_node.Children, spanFromNode(previous_node))
 				// Add function declararation node
@@ -421,7 +404,7 @@ func Parse(tokens []l.Token) ([]Node, []d.Diagnostic) {
 				diagnostics = append(diagnostics, scope_diags...)
 				index += rawLen
 			case "for_header":
-				output = output[:prevIndex]
+				output = output[:len(output)-1]
 				scope_node, scope_diags, rawLen := parseScope(tokens, index)
 				for_children := append(previous_node.Children, scope_node)
 				loopSpan := mergeSpan(spanFromNode(previous_node), spanFromNode(scope_node))
@@ -429,7 +412,7 @@ func Parse(tokens []l.Token) ([]Node, []d.Diagnostic) {
 				diagnostics = append(diagnostics, scope_diags...)
 				index += rawLen
 			case "if_header":
-				output = output[:prevIndex]
+				output = output[:len(output)-1]
 				scope_node, scope_diags, rawLen := parseScope(tokens, index)
 				if_children := append(previous_node.Children, scope_node)
 				ifSpan := mergeSpan(spanFromNode(previous_node), spanFromNode(scope_node))
@@ -437,7 +420,7 @@ func Parse(tokens []l.Token) ([]Node, []d.Diagnostic) {
 				diagnostics = append(diagnostics, scope_diags...)
 				index += rawLen
 			case "while_header":
-				output = output[:prevIndex]
+				output = output[:len(output)-1]
 				scope_node, scope_diags, rawLen := parseScope(tokens, index)
 				while_children := append(previous_node.Children, scope_node)
 				whileSpan := mergeSpan(spanFromNode(previous_node), spanFromNode(scope_node))
@@ -445,7 +428,7 @@ func Parse(tokens []l.Token) ([]Node, []d.Diagnostic) {
 				diagnostics = append(diagnostics, scope_diags...)
 				index += rawLen
 			case "foreach_header":
-				output = output[:prevIndex]
+				output = output[:len(output)-1]
 				scope_node, scope_diags, rawLen := parseScope(tokens, index)
 				foreach_children := append(previous_node.Children, scope_node)
 				foreachSpan := mergeSpan(spanFromNode(previous_node), spanFromNode(scope_node))
@@ -453,7 +436,7 @@ func Parse(tokens []l.Token) ([]Node, []d.Diagnostic) {
 				diagnostics = append(diagnostics, scope_diags...)
 				index += rawLen
 			case "switch_header":
-				output = output[:prevIndex]
+				output = output[:len(output)-1]
 				scope_node, scope_diags, rawLen := parseScope(tokens, index)
 				switch_children := append(previous_node.Children, scope_node)
 				switchSpan := mergeSpan(spanFromNode(previous_node), spanFromNode(scope_node))
@@ -461,14 +444,14 @@ func Parse(tokens []l.Token) ([]Node, []d.Diagnostic) {
 				diagnostics = append(diagnostics, scope_diags...)
 				index += rawLen
 			case "else_header":
-				output = output[:prevIndex]
+				output = output[:len(output)-1]
 				scope_node, scope_diags, rawLen := parseScope(tokens, index)
 				elseSpan := mergeSpan(spanFromNode(previous_node), spanFromNode(scope_node))
 				output = append(output, nodeWithSpan("else_clause", NodeData{}, []Node{scope_node}, elseSpan))
 				diagnostics = append(diagnostics, scope_diags...)
 				index += rawLen
 			case "do_header":
-				output = output[:prevIndex]
+				output = output[:len(output)-1]
 				scope_node, scope_diags, rawLen := parseScope(tokens, index)
 				diagnostics = append(diagnostics, scope_diags...)
 
@@ -503,25 +486,18 @@ func Parse(tokens []l.Token) ([]Node, []d.Diagnostic) {
 				output = append(output, do_node)
 				index = consumedIndex
 			default:
-				// Don't report error for bare blocks - they occur in decompiled code
-				// when control flow is inside block comments
-				scope_node, scope_diags, rawLen := parseScope(tokens, index)
-				output = append(output, scope_node)
-				diagnostics = append(diagnostics, scope_diags...)
-				index += rawLen
+				diagnostics = append(diagnostics, diagnosticAtIndex("unexpected {", tokens, index, "error"))
+				output = append(output, nodeWithSpan("open_curly", NodeData{}, []Node{}, spanFromToken(tokens[index])))
+				break
 			}
 		case l.CLOSE_PAREN:
 			diagnostics = append(diagnostics, diagnosticAtIndex("unexpected )", tokens, index, "error"))
 		case l.CLOSE_BRACKET:
 			diagnostics = append(diagnostics, diagnosticAtIndex("unexpected ]", tokens, index, "error"))
 		case l.CLOSE_CURLY:
-			// Don't report error for closing braces - they might be from decompiled code
-			// with unbalanced braces due to block comments
-			output = append(output, nodeWithSpan("close_curly", NodeData{}, []Node{}, spanFromToken(tokens[index])))
+			diagnostics = append(diagnostics, diagnosticAtIndex("unexpected }", tokens, index, "error"))
 		case l.COLON:
-			// Ignore colons (used in case/default labels and ternary)
-		case l.FUNCTION_POINTER:
-			// Function pointer operator :: - ignore as it's handled as part of function reference syntax
+			// Ignore colons (used in case/default labels)
 		default:
 		}
 		index++

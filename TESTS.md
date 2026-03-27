@@ -53,7 +53,7 @@
 === RUN   TestDiagnosticsUnexpectedCloseCurly
 --- PASS: TestDiagnosticsUnexpectedCloseCurly (0.00s)
 PASS
-ok  	github.com/maxvanasten/gscp/diagnostics	0.018s
+ok  	github.com/maxvanasten/gscp/diagnostics	(cached)
 === RUN   Test_Generate_VariableReference
 --- PASS: Test_Generate_VariableReference (0.00s)
 === RUN   Test_Generate_String
@@ -148,12 +148,8 @@ ok  	github.com/maxvanasten/gscp/diagnostics	0.018s
 --- PASS: Test_Generate_DefaultClause (0.00s)
 === RUN   Test_Generate_SwitchStatement
 --- PASS: Test_Generate_SwitchStatement (0.00s)
-=== RUN   Test_Generate_HashString
---- PASS: Test_Generate_HashString (0.00s)
-=== RUN   Test_Generate_FunctionCallWithHashString
---- PASS: Test_Generate_FunctionCallWithHashString (0.00s)
 PASS
-ok  	github.com/maxvanasten/gscp/generator	0.016s
+ok  	github.com/maxvanasten/gscp/generator	(cached)
 === RUN   TestLexerSymbol
 --- PASS: TestLexerSymbol (0.00s)
 === RUN   TestLexerNumber
@@ -196,12 +192,8 @@ ok  	github.com/maxvanasten/gscp/generator	0.016s
 --- PASS: TestLexerCBlockComment (0.00s)
 === RUN   TestLexerLineComment
 --- PASS: TestLexerLineComment (0.00s)
-=== RUN   TestLexerHashString
---- PASS: TestLexerHashString (0.00s)
-=== RUN   TestLexerHashStringWithSpecialChars
---- PASS: TestLexerHashStringWithSpecialChars (0.00s)
 PASS
-ok  	github.com/maxvanasten/gscp/lexer	0.015s
+ok  	github.com/maxvanasten/gscp/lexer	(cached)
 === RUN   Test_Multiline_Array_In_Return_Within_Switch
 --- PASS: Test_Multiline_Array_In_Return_Within_Switch (0.00s)
 === RUN   Test_Multiline_Return_Array
@@ -282,10 +274,6 @@ ok  	github.com/maxvanasten/gscp/lexer	0.015s
 --- PASS: Test_Function_Call_Complex_Args (0.00s)
 === RUN   Test_Comments_AreParsedAsNodes
 --- PASS: Test_Comments_AreParsedAsNodes (0.00s)
-=== RUN   Test_HashString
---- PASS: Test_HashString (0.00s)
-=== RUN   Test_HashStringInSwitch
---- PASS: Test_HashStringInSwitch (0.00s)
 PASS
-ok  	github.com/maxvanasten/gscp/parser	0.016s
+ok  	github.com/maxvanasten/gscp/parser	(cached)
 ```

@@ -20,6 +20,14 @@ func joinInlineChildren(children []p.Node, sep string) string {
 	parts := []string{}
 	for i := 0; i < len(children); i++ {
 		child := children[i]
+		if child.Type == "variable_reference" && child.Data.VarName == "#" && i+1 < len(children) {
+			next := children[i+1]
+			if next.Type == "string" {
+				parts = append(parts, "#\""+next.Data.Content+"\"")
+				i++
+				continue
+			}
+		}
 		parts = append(parts, stripTrailingSemicolon(Generate(child)))
 	}
 	return strings.Join(parts, sep)
@@ -70,10 +78,6 @@ func Generate(node p.Node) string {
 		output.WriteRune('"')
 		output.WriteString(node.Data.Content)
 		output.WriteRune('"')
-	case "hash_string":
-		output.WriteString("#\"")
-		output.WriteString(node.Data.Content)
-		output.WriteString("\"")
 	case "boolean":
 		output.WriteString(node.Data.Content)
 	case "number":
